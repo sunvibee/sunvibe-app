@@ -4,6 +4,7 @@ import '../widgets/bottom_nav_bar.dart'; // Add this import
 import 'robots_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
+import '../services/mqtt_service.dart';
 
 
 /// Current operating state of the robot. Drives the ONLINE/OFFLINE
@@ -18,6 +19,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    MQTTService.instance.connect();
+  }
+
   int selectedIndex = 0;
   RobotState robotState = RobotState.online;
 
@@ -59,25 +67,57 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  void _onStart() {
-    setState(() => robotState = RobotState.online);
-    _showFeedback("Robot started — cleaning has begun", AppColors.orange);
-  }
+ void _onStart() {
+  MQTTService.instance.publish("ON");
 
-  void _onStop() {
-    setState(() => robotState = RobotState.stopped);
-    _showFeedback("Robot stopped", AppColors.navy);
-  }
+  setState(() {
+    robotState = RobotState.online;
+  });
 
-  void _onResume() {
-    setState(() => robotState = RobotState.resumed);
-    _showFeedback("Robot resumed — cleaning continues", AppColors.blue);
-  }
+  _showFeedback(
+    "Robot Started",
+    AppColors.orange,
+  );
+}
 
-  void _onEmergencyStop() {
-    setState(() => robotState = RobotState.emergencyStopped);
-    _showFeedback("Emergency stop activated!", AppColors.red);
-  }
+ void _onStop() {
+  MQTTService.instance.publish("OFF");
+
+  setState(() {
+    robotState = RobotState.stopped;
+  });
+
+  _showFeedback(
+    "Robot Stopped",
+    AppColors.navy,
+  );
+}
+
+ void _onResume() {
+  MQTTService.instance.publish("ON");
+
+  setState(() {
+    robotState = RobotState.resumed;
+  });
+
+  _showFeedback(
+    "Robot Resumed",
+    AppColors.blue,
+  );
+}
+
+ void _onEmergencyStop() {
+  MQTTService.instance.publish("OFF");
+
+  setState(() {
+    robotState = RobotState.emergencyStopped;
+  });
+
+  _showFeedback(
+    "Emergency Stop",
+    AppColors.red,
+  );
+}
 
   void _onNavTap(int index) {
     if (index == selectedIndex) return;
@@ -608,4 +648,9 @@ Future<void> _showExitDialog() async {
       ),
     );
   }
+  @override
+void dispose() {
+  MQTTService.instance.disconnect();
+  super.dispose();
 }
+} 
