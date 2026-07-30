@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:sunvibee_app/screens/home_screen.dart';
+import 'screens/splash_screen.dart';
+import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
 import 'package:sunvibee_app/screens/login_screen.dart';
 import 'package:sunvibee_app/utils/app_theme.dart';
 
 void main() {
-  runApp(const Sunvibee());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: const Sunvibee(),
+    ),
+  );
 }
 
 class Sunvibee extends StatelessWidget {
@@ -16,7 +23,9 @@ class Sunvibee extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: "Sunvibee",
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+
+      //Splash Screen opens first 
+      home: const SplashScreen(),
     );
   }
 }

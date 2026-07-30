@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../widgets/bottom_nav_bar.dart'; // Add this import
 import 'robots_screen.dart';
+import 'reports_screen.dart';
+import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
-
 
 /// Current operating state of the robot. Drives the ONLINE/OFFLINE
 /// pill on the status card and which SnackBar message is shown.
@@ -19,7 +20,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-
   @override
   void initState() {
     super.initState();
@@ -67,57 +67,45 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
- void _onStart() {
-  MQTTService.instance.publish("ON");
+  void _onStart() {
+    MQTTService.instance.publish("ON");
 
-  setState(() {
-    robotState = RobotState.online;
-  });
+    setState(() {
+      robotState = RobotState.online;
+    });
 
-  _showFeedback(
-    "Robot Started",
-    AppColors.orange,
-  );
-}
+    _showFeedback("Robot Started", AppColors.orange);
+  }
 
- void _onStop() {
-  MQTTService.instance.publish("OFF");
+  void _onStop() {
+    MQTTService.instance.publish("OFF");
 
-  setState(() {
-    robotState = RobotState.stopped;
-  });
+    setState(() {
+      robotState = RobotState.stopped;
+    });
 
-  _showFeedback(
-    "Robot Stopped",
-    AppColors.navy,
-  );
-}
+    _showFeedback("Robot Stopped", AppColors.navy);
+  }
 
- void _onResume() {
-  MQTTService.instance.publish("ON");
+  void _onResume() {
+    MQTTService.instance.publish("ON");
 
-  setState(() {
-    robotState = RobotState.resumed;
-  });
+    setState(() {
+      robotState = RobotState.resumed;
+    });
 
-  _showFeedback(
-    "Robot Resumed",
-    AppColors.blue,
-  );
-}
+    _showFeedback("Robot Resumed", AppColors.blue);
+  }
 
- void _onEmergencyStop() {
-  MQTTService.instance.publish("OFF");
+  void _onEmergencyStop() {
+    MQTTService.instance.publish("OFF");
 
-  setState(() {
-    robotState = RobotState.emergencyStopped;
-  });
+    setState(() {
+      robotState = RobotState.emergencyStopped;
+    });
 
-  _showFeedback(
-    "Emergency Stop",
-    AppColors.red,
-  );
-}
+    _showFeedback("Emergency Stop", AppColors.red);
+  }
 
   void _onNavTap(int index) {
     if (index == selectedIndex) return;
@@ -135,64 +123,59 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => const RobotsScreen()),
       );
     } else if (index == 2) {
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (_) => const ReportsScreen()),
-      // );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ReportsScreen()),
+      );
     } else if (index == 3) {
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (_) => const SupportScreen()),
-      // );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SupportScreen()),
+      );
     }
   }
-Future<void> _showExitDialog() async {
-  final shouldExit = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.exit_to_app, color: Colors.red),
-            SizedBox(width: 10),
-            Text("Exit App"),
-          ],
-        ),
-        content: const Text(
-          "Do you really want to close the app?",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context, false);
-            },
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            onPressed: () {
-              Navigator.pop(context, true);
-            },
-            child: const Text(
-              "Exit",
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      );
-    },
-  );
 
-  if (shouldExit == true) {
-    SystemNavigator.pop();
+  Future<void> _showExitDialog() async {
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.exit_to_app, color: Colors.red),
+              SizedBox(width: 10),
+              Text("Exit App"),
+            ],
+          ),
+          content: const Text("Do you really want to close the app?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text("Exit", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldExit == true) {
+      SystemNavigator.pop();
+    }
   }
-}
+
   @override
   Widget build(BuildContext context) {
     final scale = _scale(context);
@@ -269,15 +252,19 @@ Future<void> _showExitDialog() async {
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
             onTap: () => Navigator.push(
-  context,
-  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-),
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ),
             child: Padding(
               padding: EdgeInsets.all(10 * scale),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(Icons.notifications_none, size: 24 * scale, color: Colors.black87),
+                  Icon(
+                    Icons.notifications_none,
+                    size: 24 * scale,
+                    color: Colors.black87,
+                  ),
                   Positioned(
                     right: -1 * scale,
                     top: -1 * scale,
@@ -375,14 +362,14 @@ Future<void> _showExitDialog() async {
                     scale: scale,
                     icon: Icons.smart_toy_outlined,
                     label: "Master Robot ID",
-                    value: "SV-MR-001",
+                    value: "SV-001",
                   ),
                   SizedBox(height: 12 * scale),
                   _idCard(
                     scale: scale,
                     icon: Icons.router_outlined,
                     label: "Gateway ID",
-                    value: "GW-2025-1847",
+                    value: "GW-25-1847",
                   ),
                 ],
               );
@@ -440,7 +427,10 @@ Future<void> _showExitDialog() async {
 
   Widget _statusPill(double scale) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 18 * scale, vertical: 14 * scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 18 * scale,
+        vertical: 14 * scale,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -450,7 +440,10 @@ Future<void> _showExitDialog() async {
           Container(
             width: 14 * scale,
             height: 14 * scale,
-            decoration: BoxDecoration(color: _statusColor, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: _statusColor,
+              shape: BoxShape.circle,
+            ),
           ),
           SizedBox(width: 10 * scale),
           Flexible(
@@ -480,7 +473,10 @@ Future<void> _showExitDialog() async {
     required String value,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 12 * scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * scale,
+        vertical: 12 * scale,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -505,7 +501,10 @@ Future<void> _showExitDialog() async {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5 * scale),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12.5 * scale,
+                  ),
                 ),
                 SizedBox(height: 2 * scale),
                 Text(
@@ -648,9 +647,10 @@ Future<void> _showExitDialog() async {
       ),
     );
   }
+
   @override
-void dispose() {
-  MQTTService.instance.disconnect();
-  super.dispose();
+  void dispose() {
+    MQTTService.instance.disconnect();
+    super.dispose();
+  }
 }
-} 

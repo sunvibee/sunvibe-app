@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav_bar.dart';
 import 'home_screen.dart';
+import 'reports_screen.dart';
+import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 
@@ -59,19 +61,20 @@ class _RobotsScreenState extends State<RobotsScreen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } else if (index == 1) {
-      // Already on Robots
+       Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const RobotsScreen()),
+    );
     } else if (index == 2) {
-      // Navigate to Reports Screen
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (_) => const ReportsScreen()),
-      // );
+      Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportsScreen()),
+    );
     } else if (index == 3) {
-      // Navigate to Support Screen
-      // Navigator.pushReplacement(
-      //   context,
-      //   MaterialPageRoute(builder: (_) => const SupportScreen()),
-      // );
+      Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const SupportScreen()),
+    );
     }
   }
 

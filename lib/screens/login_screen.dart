@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,8 +17,8 @@ class _LoginScreenState extends State<LoginScreen> {
   bool obscurePassword = true;
   bool isLoading = false;
 
-  final String validRobotId = "SVT-001";
-  final String validPassword = "12345678";
+  final String validRobotId = "SunVibee";
+  final String validPassword = "SunVibee@123";
 
   void login() async {
     FocusScope.of(context).unfocus();
@@ -42,6 +44,11 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (robotId == validRobotId && password == validPassword) {
+      await Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).login(robotId: robotId, userName: robotId);
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
