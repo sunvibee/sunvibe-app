@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'notification_screen.dart';
 import 'robots_screen.dart';
@@ -17,7 +16,7 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-  int selectedIndex = 3;
+
   bool _isLoggingOut = false;
 
   double _scale(BuildContext context) {
@@ -38,27 +37,6 @@ class _SupportScreenState extends State<SupportScreen> {
       );
   }
 
-  void _onNavTap(int index) {
-    if (index == selectedIndex) return;
-
-    setState(() {
-      selectedIndex = index;
-    });
-
-    if (index == 0) {
-      Navigator.pop(context);
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RobotsScreen()),
-      );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ReportsScreen()),
-      );
-    }
-  }
 
   Future<void> _handleLogout() async {
     setState(() => _isLoggingOut = true);
@@ -163,10 +141,6 @@ class _SupportScreenState extends State<SupportScreen> {
             );
           },
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: _onNavTap,
       ),
     );
   }

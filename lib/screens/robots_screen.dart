@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'reports_screen.dart';
 import 'support_screen.dart';
@@ -14,7 +13,7 @@ class RobotsScreen extends StatefulWidget {
 }
 
 class _RobotsScreenState extends State<RobotsScreen> {
-  int selectedIndex = 1; // Robots tab active on this screen
+  // Robots tab active on this screen
   final TextEditingController _searchController = TextEditingController();
 
   // Replace with real data from your backend/state layer.
@@ -47,36 +46,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
       );
   }
 
-  void _onNavTap(int index) {
-    if (index == selectedIndex) return;
-
-    setState(() {
-      selectedIndex = index;
-    });
-
-    // Navigate to different screens
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else if (index == 1) {
-       Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const RobotsScreen()),
-    );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const ReportsScreen()),
-    );
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const SupportScreen()),
-    );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,10 +85,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
             );
           },
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: _onNavTap,
       ),
     );
   }

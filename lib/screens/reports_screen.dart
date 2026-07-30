@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav_bar.dart';
 import 'home_screen.dart';
 import 'robots_screen.dart';
 import 'support_screen.dart'; // Add this import
@@ -20,7 +19,7 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  int selectedIndex = 2; // Reports tab active on this screen
+  // Reports tab active on this screen
   String selectedTimeFilter = "Today";
 
   // Replace with real data from your backend/state layer.
@@ -45,30 +44,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-  }
-
-  void _onNavTap(int index) {
-    if (index == selectedIndex) return;
-
-    setState(() {
-      selectedIndex = index;
-    });
-
-    if (index == 0) {
-      Navigator.pop(context); // Go back to Home
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RobotsScreen()),
-      );
-    } else if (index == 2) {
-      // Already on Reports
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SupportScreen()),
-      );
-    }
   }
 
   //---------------- Back Button Handler ----------------
@@ -117,10 +92,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: _onNavTap,
       ),
     );
   }

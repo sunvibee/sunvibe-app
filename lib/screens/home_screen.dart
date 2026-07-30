@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../widgets/bottom_nav_bar.dart'; // Add this import
 import 'robots_screen.dart';
 import 'reports_screen.dart';
 import 'support_screen.dart';
@@ -26,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MQTTService.instance.connect();
   }
 
-  int selectedIndex = 0;
+  
   RobotState robotState = RobotState.online;
 
   // Simple responsive scale based on screen width.
@@ -107,33 +106,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _showFeedback("Emergency Stop", AppColors.red);
   }
 
-  void _onNavTap(int index) {
-    if (index == selectedIndex) return;
-
-    setState(() {
-      selectedIndex = index;
-    });
-
-    // Navigate to different screens
-    if (index == 0) {
-      // Already on Home
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RobotsScreen()),
-      );
-    } else if (index == 2) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ReportsScreen()),
-      );
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SupportScreen()),
-      );
-    }
-  }
 
   Future<void> _showExitDialog() async {
     final shouldExit = await showDialog<bool>(
@@ -219,10 +191,6 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-      ),
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: _onNavTap,
       ),
     );
   }
