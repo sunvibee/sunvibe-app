@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'home_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'notification_screen.dart';
-import 'robots_screen.dart';
-import 'reports_screen.dart';
-import 'login_screen.dart'; // Import LoginScreen
+import 'login_screen.dart';
 import '../utils/app_colors.dart';
-import '../providers/auth_provider.dart'; // Import AuthProvider
+import '../providers/auth_provider.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -16,7 +14,6 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-
   bool _isLoggingOut = false;
 
   double _scale(BuildContext context) {
@@ -37,6 +34,339 @@ class _SupportScreenState extends State<SupportScreen> {
       );
   }
 
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: cleanNumber,
+    );
+    
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+      } else {
+        _showFeedback("Unable to make call", AppColors.red);
+      }
+    } catch (e) {
+      print('Call error: $e');
+      _showFeedback("Error making call", AppColors.red);
+    }
+  }
+
+  void _showQuickHelpDialog(String title, String description, List<String> steps) {
+    final scale = _scale(context);
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.92,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          padding: EdgeInsets.all(20 * scale),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10 * scale),
+                    decoration: BoxDecoration(
+                      color: AppColors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.help_outline,
+                      color: AppColors.orange,
+                      size: 24 * scale,
+                    ),
+                  ),
+                  SizedBox(width: 14 * scale),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 20 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.grey.shade600,
+                      size: 26 * scale,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16 * scale),
+              // Description
+              Container(
+                padding: EdgeInsets.all(16 * scale),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 16 * scale,
+                    color: Colors.black87,
+                    height: 1.6,
+                  ),
+                ),
+              ),
+              SizedBox(height: 18 * scale),
+              // Steps
+              Text(
+                "How to fix:",
+                style: TextStyle(
+                  fontSize: 18 * scale,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 12 * scale),
+              Expanded(
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: steps.length,
+                  separatorBuilder: (context, index) => SizedBox(height: 10 * scale),
+                  itemBuilder: (context, index) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 26 * scale,
+                          height: 26 * scale,
+                          decoration: BoxDecoration(
+                            color: AppColors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(13),
+                          ),
+                          child: Center(
+                            child: Text(
+                              "${index + 1}",
+                              style: TextStyle(
+                                fontSize: 14 * scale,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.orange,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12 * scale),
+                        Expanded(
+                          child: Text(
+                            steps[index],
+                            style: TextStyle(
+                              fontSize: 15 * scale,
+                              color: Colors.grey.shade700,
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 16 * scale),
+              // Close Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.orange,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 14 * scale),
+                    minimumSize: Size(double.infinity, 48 * scale),
+                  ),
+                  child: Text(
+                    "Got it!",
+                    style: TextStyle(
+                      fontSize: 16 * scale,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFaqDialog() {
+    final scale = _scale(context);
+    
+    final faqs = [
+      {
+        "question": "How often should I clean my solar panels?",
+        "answer": "We recommend cleaning your solar panels every 2-3 months, or more frequently if you live in a dusty area. Regular cleaning ensures maximum energy efficiency."
+      },
+      {
+        "question": "How does the SunVibee robot work?",
+        "answer": "SunVibee robot uses advanced sensors and AI to navigate your solar panels, removing dust, dirt, and debris. It's completely autonomous and can be controlled via the app."
+      },
+      {
+        "question": "Is the robot safe for my solar panels?",
+        "answer": "Yes! SunVibee robots are designed with soft, non-abrasive brushes and gentle cleaning mechanisms. They're tested to ensure they don't scratch or damage your panels."
+      },
+      {
+        "question": "What happens if the robot gets stuck?",
+        "answer": "The robot has built-in sensors to detect obstacles. If it gets stuck, it will stop and notify you through the app so you can assist it."
+      },
+      {
+        "question": "How do I maintain my SunVibee robot?",
+        "answer": "Regular maintenance includes cleaning the brushes, checking for debris, and keeping the sensors clean. Refer to the user manual for detailed maintenance instructions."
+      },
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.92,
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          padding: EdgeInsets.all(20 * scale),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      "Frequently Asked Questions",
+                      style: TextStyle(
+                        fontSize: 20 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close,
+                      color: Colors.grey.shade600,
+                      size: 26 * scale,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              SizedBox(height: 16 * scale),
+              // FAQ List
+              Expanded(
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: faqs.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    color: Colors.grey.shade200,
+                  ),
+                  itemBuilder: (context, index) {
+                    final faq = faqs[index];
+                    return _buildFaqItem(
+                      question: faq["question"] as String,
+                      answer: faq["answer"] as String,
+                      scale: scale,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqItem({
+    required String question,
+    required String answer,
+    required double scale,
+  }) {
+    bool isExpanded = false;
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: () {
+                setState(() {
+                  isExpanded = !isExpanded;
+                });
+              },
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 14 * scale),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        question,
+                        style: TextStyle(
+                          fontSize: 16 * scale,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: AppColors.orange,
+                      size: 24 * scale,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isExpanded)
+              Padding(
+                padding: EdgeInsets.only(bottom: 14 * scale),
+                child: Text(
+                  answer,
+                  style: TextStyle(
+                    fontSize: 15 * scale,
+                    color: Colors.grey.shade700,
+                    height: 1.6,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _handleLogout() async {
     setState(() => _isLoggingOut = true);
@@ -73,22 +403,16 @@ class _SupportScreenState extends State<SupportScreen> {
 
     if (confirm == true) {
       try {
-        // Clear session using AuthProvider
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.logout();
-
-        // Verify session is cleared
-        final isLoggedIn = await authProvider.checkSession();
-        print('After logout - isLoggedIn: $isLoggedIn'); // Debug log
 
         setState(() => _isLoggingOut = false);
 
         if (mounted) {
-          // Navigate to login screen and clear all routes
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
-            (route) => false, // Remove all previous routes
+            (route) => false,
           );
 
           _showFeedback("Logged out successfully", AppColors.green);
@@ -114,6 +438,7 @@ class _SupportScreenState extends State<SupportScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
                 horizontalPadding,
                 18 * scale,
@@ -150,19 +475,19 @@ class _SupportScreenState extends State<SupportScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
+        Flexible(
           child: Text(
             "How can we help you?",
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 24 * scale,
+              fontSize: 26 * scale,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
         ),
-        SizedBox(width: 12 * scale),
+        SizedBox(width: 10 * scale),
         Material(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -208,14 +533,14 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildWelcomeCard(double scale) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(20 * scale),
+      padding: EdgeInsets.all(18 * scale),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppColors.orange, AppColors.orangeDark],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: AppColors.orange.withOpacity(.25),
@@ -227,7 +552,7 @@ class _SupportScreenState extends State<SupportScreen> {
       child: Row(
         children: [
           Expanded(
-            flex: 6,
+            flex: 7,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -239,31 +564,30 @@ class _SupportScreenState extends State<SupportScreen> {
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 8 * scale),
+                SizedBox(height: 6 * scale),
                 Text(
                   "We're here to help you with your robot anytime.",
                   style: TextStyle(
-                    fontSize: 14 * scale,
+                    fontSize: 15 * scale,
                     color: Colors.white.withOpacity(.9),
-                    height: 1.4,
+                    height: 1.5,
                   ),
                 ),
               ],
             ),
           ),
-          Expanded(
-            flex: 4,
-            child: Container(
-              height: 80 * scale,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(.15),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                Icons.support_agent,
-                size: 40 * scale,
-                color: Colors.white,
-              ),
+          SizedBox(width: 12 * scale),
+          Container(
+            width: 60 * scale,
+            height: 60 * scale,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.15),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.support_agent,
+              size: 32 * scale,
+              color: Colors.white,
             ),
           ),
         ],
@@ -275,34 +599,17 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildSupportOptions(double scale) {
     final options = [
       {
-        "icon": Icons.confirmation_number_outlined,
-        "label": "Raise a Ticket",
-        "color": AppColors.blue,
-        "bgColor": const Color(0xFFE3F0FF),
-      },
-      {
-        "icon": Icons.chat_bubble_outline,
-        "label": "Chat with Support",
-        "color": AppColors.orange,
-        "bgColor": const Color(0xFFFFF0E5),
-      },
-      {
-        "icon": Icons.call_outlined,
+        "icon": Icons.phone_in_talk_outlined,
         "label": "Call Support",
         "color": AppColors.green,
         "bgColor": const Color(0xFFE5F5E8),
+        "phone": "+91 8899778600",
       },
       {
         "icon": Icons.help_outline,
         "label": "FAQ",
         "color": AppColors.navy,
         "bgColor": const Color(0xFFE8E9ED),
-      },
-      {
-        "icon": Icons.description_outlined,
-        "label": "My Tickets",
-        "color": const Color(0xFF9B59B6),
-        "bgColor": const Color(0xFFF3E8F7),
       },
     ];
 
@@ -312,56 +619,22 @@ class _SupportScreenState extends State<SupportScreen> {
         Text(
           "Support Options",
           style: TextStyle(
-            fontSize: 18 * scale,
+            fontSize: 20 * scale,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
-        SizedBox(height: 14 * scale),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 360;
-
-            if (isNarrow) {
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: _supportCard(scale, options[0])),
-                      SizedBox(width: 12 * scale),
-                      Expanded(child: _supportCard(scale, options[1])),
-                    ],
-                  ),
-                  SizedBox(height: 12 * scale),
-                  Row(
-                    children: [
-                      Expanded(child: _supportCard(scale, options[2])),
-                      SizedBox(width: 12 * scale),
-                      Expanded(child: _supportCard(scale, options[3])),
-                    ],
-                  ),
-                  SizedBox(height: 12 * scale),
-                  Row(
-                    children: [
-                      Expanded(child: _supportCard(scale, options[4])),
-                      const Expanded(child: SizedBox()),
-                    ],
-                  ),
-                ],
-              );
-            }
-
-            return Wrap(
-              spacing: 12 * scale,
-              runSpacing: 12 * scale,
-              children: options.map((option) {
-                return SizedBox(
-                  width: (constraints.maxWidth - 24 * scale) / 3,
-                  child: _supportCard(scale, option),
-                );
-              }).toList(),
-            );
-          },
+        SizedBox(height: 16 * scale),
+        Row(
+          children: [
+            Expanded(
+              child: _supportCard(scale, options[0]),
+            ),
+            SizedBox(width: 12 * scale),
+            Expanded(
+              child: _supportCard(scale, options[1]),
+            ),
+          ],
         ),
       ],
     );
@@ -370,7 +643,13 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _supportCard(double scale, Map<String, dynamic> option) {
     return InkWell(
       onTap: () {
-        _showFeedback("Opening ${option["label"]}", AppColors.navy);
+        if (option["label"] == "Call Support") {
+          _makePhoneCall(option["phone"] as String);
+        } else if (option["label"] == "FAQ") {
+          _showFaqDialog();
+        } else {
+          _showFeedback("Opening ${option["label"]}", AppColors.navy);
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -378,7 +657,7 @@ class _SupportScreenState extends State<SupportScreen> {
         decoration: BoxDecoration(
           color: option["bgColor"],
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: option["color"].withOpacity(.2), width: 1),
+          border: Border.all(color: option["color"].withOpacity(.2), width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -399,7 +678,7 @@ class _SupportScreenState extends State<SupportScreen> {
               child: Icon(
                 option["icon"] as IconData,
                 color: option["color"],
-                size: 24 * scale,
+                size: 28 * scale,
               ),
             ),
             SizedBox(height: 10 * scale),
@@ -407,8 +686,8 @@ class _SupportScreenState extends State<SupportScreen> {
               option["label"] as String,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 13 * scale,
-                fontWeight: FontWeight.w500,
+                fontSize: 15 * scale,
+                fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
             ),
@@ -421,10 +700,58 @@ class _SupportScreenState extends State<SupportScreen> {
   //---------------- Quick Help Section ----------------
   Widget _buildQuickHelpSection(double scale) {
     final helpItems = [
-      {"icon": Icons.wifi_off_outlined, "label": "Robot won't connect"},
-      {"icon": Icons.pause_circle_outline, "label": "Cleaning stopped"},
-      {"icon": Icons.battery_alert_outlined, "label": "Battery problem"},
-      {"icon": Icons.signal_wifi_off, "label": "WiFi issue"},
+      {
+        "icon": Icons.wifi_off_outlined,
+        "label": "Robot won't connect",
+        "description": "If your SunVibee robot is not connecting to the app or network, follow these troubleshooting steps.",
+        "steps": [
+          "Make sure your robot is powered ON and charged.",
+          "Check if your smartphone's Bluetooth and WiFi are turned ON.",
+          "Restart the robot by turning it OFF and ON again.",
+          "Reset the robot's network settings by pressing the reset button for 5 seconds.",
+          "If the issue persists, contact support for further assistance."
+        ]
+      },
+      {
+        "icon": Icons.pause_circle_outline,
+        "label": "Cleaning stopped",
+        "description": "If your robot stops cleaning unexpectedly during a session, here's what you can do.",
+        "steps": [
+          "Check if the robot has run out of battery. If so, place it on the charging dock.",
+          "Check for any physical obstructions like debris or objects blocking the robot.",
+          "Ensure the water tank is not empty (if using water-based cleaning).",
+          "Check if the robot is stuck on a rough surface or edge.",
+          "Restart the cleaning session from the app.",
+          "If the problem continues, perform a soft reset by holding the power button."
+        ]
+      },
+      {
+        "icon": Icons.battery_alert_outlined,
+        "label": "Battery problem",
+        "description": "If your robot is experiencing battery issues, follow these steps to diagnose and resolve the problem.",
+        "steps": [
+          "Check if the robot is properly connected to the charging dock.",
+          "Ensure the charging dock is plugged into a working power outlet.",
+          "Clean the charging contacts on both the robot and the dock.",
+          "Allow the robot to charge for at least 3-4 hours without interruption.",
+          "If the battery drains quickly, check if the robot is in power-saving mode.",
+          "If the issue persists, the battery may need replacement. Contact support."
+        ]
+      },
+      {
+        "icon": Icons.signal_wifi_off,
+        "label": "WiFi issue",
+        "description": "If your robot is having WiFi connectivity problems, follow these troubleshooting steps.",
+        "steps": [
+          "Check if your home WiFi network is working properly.",
+          "Ensure the robot is within range of your WiFi router.",
+          "Restart your WiFi router and modem.",
+          "Check if there are too many devices connected to your network.",
+          "Try connecting the robot to a 2.4GHz WiFi network (5GHz may not work).",
+          "Reset the robot's WiFi settings and reconnect from the app.",
+          "If the problem persists, try forgetting the network and reconnecting."
+        ]
+      },
     ];
 
     return Column(
@@ -433,49 +760,26 @@ class _SupportScreenState extends State<SupportScreen> {
         Text(
           "Quick Help",
           style: TextStyle(
-            fontSize: 18 * scale,
+            fontSize: 20 * scale,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
-        SizedBox(height: 14 * scale),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 340;
-
-            if (isNarrow) {
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: _quickHelpCard(scale, helpItems[0])),
-                      SizedBox(width: 10 * scale),
-                      Expanded(child: _quickHelpCard(scale, helpItems[1])),
-                    ],
-                  ),
-                  SizedBox(height: 10 * scale),
-                  Row(
-                    children: [
-                      Expanded(child: _quickHelpCard(scale, helpItems[2])),
-                      SizedBox(width: 10 * scale),
-                      Expanded(child: _quickHelpCard(scale, helpItems[3])),
-                    ],
-                  ),
-                ],
-              );
-            }
-
-            return Wrap(
-              spacing: 10 * scale,
-              runSpacing: 10 * scale,
-              children: helpItems.map((item) {
-                return SizedBox(
-                  width: (constraints.maxWidth - 30 * scale) / 2,
-                  child: _quickHelpCard(scale, item),
-                );
-              }).toList(),
+        SizedBox(height: 16 * scale),
+        Wrap(
+          spacing: 12 * scale,
+          runSpacing: 12 * scale,
+          children: helpItems.map((item) {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final padding = 20 * scale;
+            final spacing = 12 * scale;
+            final cardWidth = (screenWidth - padding * 2 - spacing) / 2;
+            
+            return SizedBox(
+              width: cardWidth.clamp(140, 220),
+              child: _quickHelpCard(scale, item),
             );
-          },
+          }).toList(),
         ),
       ],
     );
@@ -484,7 +788,11 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _quickHelpCard(double scale, Map<String, dynamic> item) {
     return InkWell(
       onTap: () {
-        _showFeedback("Opening: ${item["label"]}", AppColors.navy);
+        _showQuickHelpDialog(
+          item["label"] as String,
+          item["description"] as String,
+          item["steps"] as List<String>,
+        );
       },
       borderRadius: BorderRadius.circular(14),
       child: Container(
@@ -501,17 +809,19 @@ class _SupportScreenState extends State<SupportScreen> {
             Icon(
               item["icon"] as IconData,
               color: AppColors.orange,
-              size: 20 * scale,
+              size: 22 * scale,
             ),
             SizedBox(width: 10 * scale),
             Expanded(
               child: Text(
                 item["label"] as String,
                 style: TextStyle(
-                  fontSize: 13 * scale,
+                  fontSize: 14 * scale,
                   fontWeight: FontWeight.w500,
                   color: Colors.black87,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Icon(
@@ -532,11 +842,12 @@ class _SupportScreenState extends State<SupportScreen> {
       child: OutlinedButton(
         onPressed: _isLoggingOut ? null : _handleLogout,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.red.withOpacity(.3)),
+          side: BorderSide(color: Colors.red.withOpacity(.3), width: 1.5),
           padding: EdgeInsets.symmetric(vertical: 16 * scale),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          minimumSize: Size(double.infinity, 48 * scale),
         ),
         child: _isLoggingOut
             ? SizedBox(
@@ -552,15 +863,15 @@ class _SupportScreenState extends State<SupportScreen> {
                 children: [
                   Icon(
                     Icons.logout_outlined,
-                    size: 20 * scale,
+                    size: 22 * scale,
                     color: Colors.red,
                   ),
                   SizedBox(width: 10 * scale),
                   Text(
                     "Log Out",
                     style: TextStyle(
-                      fontSize: 16 * scale,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 18 * scale,
+                      fontWeight: FontWeight.w600,
                       color: Colors.red,
                     ),
                   ),

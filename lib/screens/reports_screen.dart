@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
-import 'robots_screen.dart';
-import 'support_screen.dart'; // Add this import
 import '../utils/app_colors.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -9,20 +6,12 @@ class ReportsScreen extends StatefulWidget {
   
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
-    Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text("Reports"),
-      ),
-    );
-  }
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  // Reports tab active on this screen
   String selectedTimeFilter = "Today";
+  String selectedExportFormat = "PDF";
 
-  // Replace with real data from your backend/state layer.
   final double totalEnergy = 0;
   final double totalRuntime = 0;
   final int totalAlerts = 0;
@@ -44,15 +33,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-  }
-
-  //---------------- Back Button Handler ----------------
-  Future<bool> _onWillPop() async {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-    return false; // Prevent default back behavior
   }
 
   @override
@@ -85,9 +65,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               SizedBox(height: 18 * scale),
               _buildEmptyState(scale),
               SizedBox(height: 22 * scale),
-              _buildExportSectionTitle(scale),
-              SizedBox(height: 12 * scale),
-              _buildExportRow(scale),
+              _buildExportSection(scale),
               SizedBox(height: 20 * scale),
             ],
           ),
@@ -96,7 +74,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Header ----------------
   Widget _buildHeader(double scale) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -137,12 +114,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         SizedBox(width: 8 * scale),
         _headerIconButton(
           scale,
-          Icons.tune,
-          onTap: () => _showFeedback("Filters", AppColors.navy),
-        ),
-        SizedBox(width: 8 * scale),
-        _headerIconButton(
-          scale,
           Icons.file_download_outlined,
           onTap: () => _showFeedback("Download reports", AppColors.blue),
         ),
@@ -170,7 +141,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Section title + Live badge ----------------
   Widget _buildSectionTitleWithLiveBadge(double scale) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -219,7 +189,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Stats Grid ----------------
   Widget _buildStatsGrid(double scale) {
     final stats = [
       _ReportStatData(
@@ -350,7 +319,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Time Filter ----------------
   Widget _buildTimeFilterTitle(double scale) {
     return Text(
       "Time Filter",
@@ -418,7 +386,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Empty State ----------------
   Widget _buildEmptyState(double scale) {
     return Container(
       width: double.infinity,
@@ -534,126 +501,118 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  //---------------- Export Report ----------------
-  Widget _buildExportSectionTitle(double scale) {
-    return Text(
-      "Export Report",
-      style: TextStyle(
-        fontSize: 16 * scale,
-        fontWeight: FontWeight.w700,
-        color: Colors.black,
-      ),
-    );
-  }
-
-  Widget _buildExportRow(double scale) {
+  //---------------- Export Section ----------------
+  Widget _buildExportSection(double scale) {
     final exportOptions = [
       _ExportData(
         icon: Icons.picture_as_pdf_outlined,
         iconColor: const Color(0xFFE5484D),
-        title: "Export as PDF",
-        subtitle: "High quality\nformat",
+        title: "PDF",
+        subtitle: "High quality format",
       ),
       _ExportData(
         icon: Icons.grid_on,
         iconColor: const Color(0xFF1D9A4A),
-        title: "Export as Excel",
-        subtitle: "Microsoft Excel\nformat",
+        title: "Excel",
+        subtitle: "Microsoft Excel format",
       ),
       _ExportData(
         icon: Icons.insert_drive_file_outlined,
         iconColor: const Color(0xFF1D6FF2),
-        title: "Export as CSV",
-        subtitle: "Comma separated\nvalues",
+        title: "CSV",
+        subtitle: "Comma separated values",
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isNarrow = constraints.maxWidth < 340;
-
-        if (isNarrow) {
-          return Column(
-            children: exportOptions
-                .map(
-                  (e) => Padding(
-                    padding: EdgeInsets.only(bottom: 10 * scale),
-                    child: _exportCard(scale, e),
-                  ),
-                )
-                .toList(),
-          );
-        }
-
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _exportCard(scale, exportOptions[0])),
-              SizedBox(width: 10 * scale),
-              Expanded(child: _exportCard(scale, exportOptions[1])),
-              SizedBox(width: 10 * scale),
-              Expanded(child: _exportCard(scale, exportOptions[2])),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Export Report",
+          style: TextStyle(
+            fontSize: 16 * scale,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
           ),
-        );
-      },
+        ),
+        SizedBox(height: 12 * scale),
+        Row(
+          children: exportOptions.map((option) {
+            final isSelected = selectedExportFormat == option.title;
+            return Expanded(
+              child: _exportCard(
+                scale: scale,
+                data: option,
+                isSelected: isSelected,
+                onTap: () {
+                  setState(() {
+                    selectedExportFormat = option.title;
+                  });
+                  _showFeedback("Exporting as ${option.title}", AppColors.blue);
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
-  Widget _exportCard(double scale, _ExportData data) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 0,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _showFeedback(data.title, AppColors.navy),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+  Widget _exportCard({
+    required double scale,
+    required _ExportData data,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.only(right: 10 * scale),
+        padding: EdgeInsets.symmetric(
+          vertical: 12 * scale,
+          horizontal: 6 * scale,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.blue.withOpacity(0.1) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? AppColors.blue : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
           ),
-          padding: EdgeInsets.symmetric(
-            vertical: 14 * scale,
-            horizontal: 10 * scale,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(data.icon, color: data.iconColor, size: 24 * scale),
-              SizedBox(height: 10 * scale),
-              Text(
-                data.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5 * scale,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              data.icon,
+              color: isSelected ? AppColors.blue : data.iconColor,
+              size: 24 * scale,
+            ),
+            SizedBox(height: 6 * scale),
+            Text(
+              data.title,
+              style: TextStyle(
+                fontSize: 14 * scale,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? AppColors.blue : Colors.black87,
               ),
-              SizedBox(height: 4 * scale),
-              Text(
-                data.subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5 * scale,
-                  color: Colors.grey.shade600,
-                  height: 1.2,
-                ),
+            ),
+            SizedBox(height: 2 * scale),
+            Text(
+              data.subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10 * scale,
+                color: Colors.grey.shade600,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-//---------------- Sparkline Painter ----------------
 class _SparklinePainter extends CustomPainter {
   final Color color;
 
@@ -668,7 +627,6 @@ class _SparklinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // Deterministic gentle wave pattern (placeholder until real data wired up).
     final points = <Offset>[];
     final segmentCount = 8;
     for (int i = 0; i <= segmentCount; i++) {

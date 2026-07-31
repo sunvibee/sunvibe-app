@@ -16,6 +16,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  Timer? _navigationTimer;
 
   @override
   void initState() {
@@ -27,30 +28,35 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
-
     _controller.forward();
 
-    Timer(const Duration(seconds: 3), () async {
+    _navigationTimer = Timer(const Duration(seconds: 3), () async {
       final auth = Provider.of<AuthProvider>(context, listen: false);
-
-      if (await auth.checkSession()) {
-        Navigator.pushReplacement(
+      final isLoggedIn = await auth.checkSession();
+      
+      if (mounted) {
+        if (isLoggedIn) {
+          Navigator.pushReplacement(
             context,
-                    MaterialPageRoute(
-                      builder: (_) => const MainNavigationScreen(),
-                    ),
-                  );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
+            MaterialPageRoute(
+              builder: (_) => const MainNavigationScreen(),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(),
+            ),
+          );
+        }
       }
     });
   }
 
   @override
   void dispose() {
+    _navigationTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -63,15 +69,15 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: Stack(
         children: [
-          /// Background Image
           Positioned.fill(
             child: Image.asset(
               "assets/images/splash_bg.png",
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(color: Colors.orange.shade50);
+              },
             ),
           ),
-
-          /// Top white overlay
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -89,8 +95,6 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-
-          /// Sunrise Glow
           Positioned(
             top: h * .18,
             right: -40,
@@ -109,23 +113,29 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
-
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Stack(
                 children: [
-                  /// Logo
                   Positioned(
                     top: h * .05,
                     left: 0,
                     right: 0,
                     child: Column(
                       children: [
-                        Image.asset("assets/images/logo.png", height: 140),
-
+                        Image.asset(
+                          "assets/images/logo.png",
+                          height: 140,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.wb_sunny,
+                              size: 140,
+                              color: Colors.orange,
+                            );
+                          },
+                        ),
                         const SizedBox(height: 18),
-
                         const Text(
                           "SUNVIBEE",
                           style: TextStyle(
@@ -135,9 +145,7 @@ class _SplashScreenState extends State<SplashScreen>
                             letterSpacing: 2,
                           ),
                         ),
-
                         const SizedBox(height: 12),
-
                         RichText(
                           text: const TextSpan(
                             style: TextStyle(
@@ -146,7 +154,6 @@ class _SplashScreenState extends State<SplashScreen>
                             ),
                             children: [
                               TextSpan(text: "Clean Panels. "),
-
                               TextSpan(
                                 text: "More Energy.",
                                 style: TextStyle(
@@ -160,8 +167,6 @@ class _SplashScreenState extends State<SplashScreen>
                       ],
                     ),
                   ),
-
-                  /// Bottom Loading Section
                   Positioned(
                     bottom: 70,
                     left: 0,
@@ -177,23 +182,19 @@ class _SplashScreenState extends State<SplashScreen>
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-
                         const SizedBox(height: 25),
-
                         SizedBox(
                           width: 72,
                           height: 72,
                           child: CircularProgressIndicator(
                             strokeWidth: 4,
-                            valueColor: AlwaysStoppedAnimation(
-                              Color(0xffff8c00),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              const Color(0xffff8c00),
                             ),
                             backgroundColor: Colors.white24,
                           ),
                         ),
-
                         const SizedBox(height: 35),
-
                         Container(
                           width: w * .65,
                           height: 3,

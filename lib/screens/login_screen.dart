@@ -44,15 +44,24 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (robotId == validRobotId && password == validPassword) {
-      await Provider.of<AuthProvider>(
-        context,
-        listen: false,
-      ).login(robotId: robotId, userName: robotId);
+      try {
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.login(robotId: robotId, userName: robotId);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-      );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text("Login error: $e"),
+          ),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -74,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -82,18 +90,19 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-
-              Image.asset("assets/images/logo.png", height: 110),
-
+              Image.asset(
+                "assets/images/logo.png",
+                height: 110,
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(Icons.wb_sunny, size: 110, color: Colors.orange);
+                },
+              ),
               const SizedBox(height: 20),
-
               const Text(
                 "Welcome",
                 style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold),
               ),
-
               const SizedBox(height: 40),
-
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -104,9 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
-
               TextField(
                 controller: robotIdController,
                 decoration: InputDecoration(
@@ -117,9 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 25),
-
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -130,9 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 10),
-
               TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
@@ -152,9 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 35),
-
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -184,16 +185,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ],

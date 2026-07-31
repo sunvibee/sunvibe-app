@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'robots_screen.dart';
 import 'reports_screen.dart';
 import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
+import '../services/notification_service.dart';
+import '../models/notification_model.dart';
 
-/// Current operating state of the robot. Drives the ONLINE/OFFLINE
-/// pill on the status card and which SnackBar message is shown.
 enum RobotState { online, stopped, resumed, emergencyStopped }
 
 class HomeScreen extends StatefulWidget {
@@ -23,14 +22,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     MQTTService.instance.connect();
+    NotificationService().init();
   }
 
-  
   RobotState robotState = RobotState.online;
 
-  // Simple responsive scale based on screen width.
-  // 375 = standard reference width (iPhone-ish). Clamped so text/icons
-  // never blow up or shrink too far on very large/small screens.
   double _scale(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return (width / 375).clamp(0.85, 1.3);
@@ -66,86 +62,69 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
+  void _showNotification(String title, String message, NotificationType type) {
+    final color = _getNotificationColor(type);
+    _showFeedback(message, color);
+    
+    NotificationService().showNotification(
+      title: title,
+      body: message,
+      type: type,
+      payload: 'robot_command',
+    );
+  }
+
+  Color _getNotificationColor(NotificationType type) {
+    switch (type) {
+      case NotificationType.info:
+        return AppColors.blue;
+      case NotificationType.warning:
+        return AppColors.orange;
+      case NotificationType.error:
+        return AppColors.red;
+      case NotificationType.success:
+        return AppColors.green;
+    }
+  }
+
   void _onStart() {
     MQTTService.instance.publish("ON");
-
-    setState(() {
-      robotState = RobotState.online;
-    });
-
-    _showFeedback("Robot Started", AppColors.orange);
+    setState(() => robotState = RobotState.online);
+    _showNotification(
+      '✅ Robot Started',
+      'Robot SV-001 has started cleaning',
+      NotificationType.success,
+    );
   }
 
   void _onStop() {
     MQTTService.instance.publish("OFF");
-
-    setState(() {
-      robotState = RobotState.stopped;
-    });
-
-    _showFeedback("Robot Stopped", AppColors.navy);
+    setState(() => robotState = RobotState.stopped);
+    _showNotification(
+      '⏹️ Robot Stopped',
+      'Robot SV-001 has stopped cleaning',
+      NotificationType.warning,
+    );
   }
 
   void _onResume() {
     MQTTService.instance.publish("ON");
-
-    setState(() {
-      robotState = RobotState.resumed;
-    });
-
-    _showFeedback("Robot Resumed", AppColors.blue);
+    setState(() => robotState = RobotState.resumed);
+    _showNotification(
+      '🔄 Robot Resumed',
+      'Robot SV-001 has resumed cleaning',
+      NotificationType.info,
+    );
   }
 
   void _onEmergencyStop() {
     MQTTService.instance.publish("OFF");
-
-    setState(() {
-      robotState = RobotState.emergencyStopped;
-    });
-
-    _showFeedback("Emergency Stop", AppColors.red);
-  }
-
-
-  Future<void> _showExitDialog() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.exit_to_app, color: Colors.red),
-              SizedBox(width: 10),
-              Text("Exit App"),
-            ],
-          ),
-          content: const Text("Do you really want to close the app?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: const Text("Exit", style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+    setState(() => robotState = RobotState.emergencyStopped);
+    _showNotification(
+      '⚠️ Emergency Stop',
+      'Emergency stop activated on Robot SV-001',
+      NotificationType.error,
     );
-
-    if (shouldExit == true) {
-      SystemNavigator.pop();
-    }
   }
 
   @override
@@ -195,7 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Header ----------------
   Widget _buildHeader(double scale) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -254,7 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Robot Status Card ----------------
   Widget _buildRobotStatusCard(double scale) {
     return Container(
       width: double.infinity,
@@ -277,157 +254,112 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Title Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  "Robot Status",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22 * scale,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Text(
+                "Robot Status",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22 * scale,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8 * scale,
-                    height: 8 * scale,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12 * scale,
+                  vertical: 6 * scale,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6 * scale,
+                      height: 6 * scale,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  SizedBox(width: 6 * scale),
-                  Text(
-                    "Live",
-                    style: TextStyle(color: Colors.white, fontSize: 14 * scale),
-                  ),
-                ],
+                    SizedBox(width: 6 * scale),
+                    Text(
+                      "Live",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12 * scale,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           SizedBox(height: 18 * scale),
-          LayoutBuilder(
-            builder: (context, cardConstraints) {
-              // Stack image + info vertically on very narrow cards,
-              // side-by-side otherwise — keeps everything visible
-              // and never overflows on small devices.
-              final isNarrow = cardConstraints.maxWidth < 300;
-              final robotImage = _robotImage(scale, isNarrow);
-              final infoColumn = Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _statusPill(scale),
-                  SizedBox(height: 12 * scale),
-                  _idCard(
-                    scale: scale,
-                    icon: Icons.smart_toy_outlined,
-                    label: "Master Robot ID",
-                    value: "SV-001",
-                  ),
-                  SizedBox(height: 12 * scale),
-                  _idCard(
-                    scale: scale,
-                    icon: Icons.router_outlined,
-                    label: "Gateway ID",
-                    value: "GW-25-1847",
-                  ),
-                ],
-              );
 
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    robotImage,
-                    SizedBox(height: 16 * scale),
-                    infoColumn,
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 5, child: robotImage),
-                  SizedBox(width: 16 * scale),
-                  Expanded(flex: 6, child: infoColumn),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _robotImage(double scale, bool isNarrow) {
-    return SizedBox(
-      height: (isNarrow ? 150 : 190) * scale,
-      width: double.infinity,
-      child: Image.asset(
-        'assets/images/robot.png',
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // Placeholder shown until you add assets/images/robot.png
-          // (and register it under `flutter: assets:` in pubspec.yaml).
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              Icons.smart_toy,
-              size: 72 * scale,
-              color: Colors.white.withOpacity(.9),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _statusPill(double scale) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 18 * scale,
-        vertical: 14 * scale,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
+          // Status Pill - Full Width
           Container(
-            width: 14 * scale,
-            height: 14 * scale,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(
+              horizontal: 18 * scale,
+              vertical: 14 * scale,
+            ),
             decoration: BoxDecoration(
-              color: _statusColor,
-              shape: BoxShape.circle,
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 14 * scale,
+                  height: 14 * scale,
+                  decoration: BoxDecoration(
+                    color: _statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 12 * scale),
+                Text(
+                  _statusLabel,
+                  style: TextStyle(
+                    color: _statusColor,
+                    fontSize: 20 * scale,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(width: 10 * scale),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _statusLabel,
-                maxLines: 1,
-                style: TextStyle(
-                  color: _statusColor,
-                  fontSize: 20 * scale,
-                  fontWeight: FontWeight.bold,
+          SizedBox(height: 16 * scale),
+
+          // ID Cards in a Row
+          Row(
+            children: [
+              Expanded(
+                child: _idCard(
+                  scale: scale,
+                  icon: Icons.smart_toy_outlined,
+                  label: "Master Robot ID",
+                  value: "SV-001",
                 ),
               ),
-            ),
+              SizedBox(width: 14 * scale),
+              Expanded(
+                child: _idCard(
+                  scale: scale,
+                  icon: Icons.router_outlined,
+                  label: "Gateway ID",
+                  value: "GW-25-1847",
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -447,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
@@ -457,7 +389,11 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, size: 18 * scale, color: Colors.black87),
+            child: Icon(
+              icon,
+              size: 18 * scale,
+              color: Colors.black87,
+            ),
           ),
           SizedBox(width: 12 * scale),
           Expanded(
@@ -471,7 +407,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.grey.shade600,
-                    fontSize: 12.5 * scale,
+                    fontSize: 11 * scale,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 SizedBox(height: 2 * scale),
@@ -493,7 +430,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Controls Grid ----------------
   Widget _buildControlsGrid(double scale) {
     return Column(
       children: [
