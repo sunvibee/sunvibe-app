@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/notification_service.dart';
@@ -14,10 +16,11 @@ class RobotsScreen extends StatefulWidget {
 class _RobotsScreenState extends State<RobotsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _robotIdController = TextEditingController();
+  final FocusNode _robotIdFocusNode = FocusNode();
 
   List<Map<String, dynamic>> robots = [];
   bool _isConnecting = false;
-  bool _isDialogOpen = false;
+  bool _isLoading = true;
 
   int get totalRobots => robots.length;
   int get onlineRobots => robots.where((r) => r['online'] == true).length;
@@ -30,10 +33,54 @@ class _RobotsScreenState extends State<RobotsScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadRobots();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     _robotIdController.dispose();
+    _robotIdFocusNode.dispose();
     super.dispose();
+  }
+
+  // Save robots to SharedPreferences
+  Future<void> _saveRobots() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> robotJsonList = robots.map((robot) => jsonEncode(robot)).toList();
+      await prefs.setStringList('robots', robotJsonList);
+    } catch (e) {
+      print('Error saving robots: $e');
+    }
+  }
+
+  // Load robots from SharedPreferences
+  Future<void> _loadRobots() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? robotJsonList = prefs.getStringList('robots');
+      
+      if (robotJsonList != null) {
+        setState(() {
+          robots = robotJsonList
+              .map((jsonString) => jsonDecode(jsonString) as Map<String, dynamic>)
+              .toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading robots: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _showFeedback(String message, Color color) {
@@ -75,36 +122,49 @@ class _RobotsScreenState extends State<RobotsScreen> {
   }
 
   void _showAddRobotDialog() {
-    if (_isDialogOpen) return;
-    _isDialogOpen = true;
     _robotIdController.clear();
     
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
+      builder: (context) {
+        Future.delayed(Duration(milliseconds: 300), () {
+          _robotIdFocusNode.requestFocus();
+        });
+        
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Container(
+            padding: EdgeInsets.all(24),
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.smart_toy, color: AppColors.orange, size: 28),
-                SizedBox(width: 10),
+                // Animated Icon
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.animation,
+                    color: AppColors.orange,
+                    size: 40,
+                  ),
+                ),
+                SizedBox(height: 16),
                 Text(
-                  "Add Robot",
+                  "Add New Robot",
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
                 ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+                SizedBox(height: 8),
                 Text(
                   "Enter the Robot ID to connect",
                   style: TextStyle(
@@ -112,83 +172,96 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     color: Colors.grey.shade600,
                   ),
                 ),
-                SizedBox(height: 16),
-                TextField(
-                  controller: _robotIdController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    hintText: "Enter Robot ID",
-                    prefixIcon: Icon(Icons.precision_manufacturing, color: AppColors.orange),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.orange, width: 2),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
+                SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
-                  style: TextStyle(fontSize: 16),
-                  onSubmitted: (_) => _connectRobot(context, setDialogState),
+                  child: TextField(
+                    controller: _robotIdController,
+                    focusNode: _robotIdFocusNode,
+                    autofocus: true,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      hintText: "Enter Robot ID",
+                      prefixIcon: Icon(Icons.precision_manufacturing, color: AppColors.orange),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                    style: TextStyle(fontSize: 16),
+                    onSubmitted: (_) => _connectRobot(context),
+                  ),
+                ),
+                SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () {
+                          _robotIdFocusNode.unfocus();
+                          Navigator.pop(context);
+                        },
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          "Cancel",
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isConnecting ? null : () => _connectRobot(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.orange,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: _isConnecting
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                "Connect Robot",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  _isDialogOpen = false;
-                  Navigator.pop(context);
-                },
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                ),
-                child: Text(
-                  "Cancel",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: _isConnecting ? null : () => _connectRobot(context, setDialogState),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isConnecting
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        "Connect Robot",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     ).then((_) {
-      _isDialogOpen = false;
+      _robotIdFocusNode.unfocus();
+      _robotIdController.clear();
     });
   }
 
-  void _connectRobot(BuildContext context, StateSetter setDialogState) async {
+  Future<void> _connectRobot(BuildContext context) async {
     final robotId = _robotIdController.text.trim();
     
     if (robotId.isEmpty) {
@@ -203,7 +276,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
       return;
     }
 
-    // Check if robot already exists
     if (robots.any((r) => r['id'] == robotId)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -216,42 +288,38 @@ class _RobotsScreenState extends State<RobotsScreen> {
       return;
     }
 
-    setDialogState(() {
+    setState(() {
       _isConnecting = true;
     });
 
-    // Simulate connection process
     await Future.delayed(Duration(milliseconds: 800));
 
-    // Add new robot
-    setState(() {
-      robots.add({
-        'id': robotId,
-        'name': 'SV-$robotId',
-        'online': true,
-        'battery': 85,
-        'cleaning': false,
-        'alerts': false,
-        'lastActive': DateTime.now(),
-      });
-    });
+    final newRobot = {
+      'id': robotId,
+      'name': 'SV-$robotId',
+      'online': true,
+      'battery': 85,
+      'cleaning': false,
+      'alerts': false,
+      'lastActive': DateTime.now().toIso8601String(),
+    };
 
-    setDialogState(() {
+    setState(() {
+      robots.add(newRobot);
       _isConnecting = false;
     });
 
-    // Show success notification
+    await _saveRobots();
+
     _showNotification(
       '✅ Robot Connected',
       'Robot $robotId has been successfully connected!',
       NotificationType.success,
     );
 
-    // Close dialog
-    _isDialogOpen = false;
+    _robotIdFocusNode.unfocus();
     Navigator.pop(context);
     
-    // Show success snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text("✅ Robot $robotId connected successfully!"),
@@ -293,10 +361,11 @@ class _RobotsScreenState extends State<RobotsScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {
+            onPressed: () async {
               setState(() {
                 robots.removeAt(index);
               });
+              await _saveRobots();
               Navigator.pop(context);
               
               _showNotification(
@@ -329,6 +398,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         );
       }
     });
+    _saveRobots();
   }
 
   @override
@@ -336,6 +406,17 @@ class _RobotsScreenState extends State<RobotsScreen> {
     final scale = _scale(context);
     final horizontalPadding = (20 * scale).clamp(16, 30).toDouble();
     final hasRobots = robots.isNotEmpty;
+
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.orange,
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -602,138 +683,127 @@ class _RobotsScreenState extends State<RobotsScreen> {
   }
 
   Widget _buildEmptyState(double scale) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12 * scale),
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 30 * scale),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _decorativeRobotIllustration(scale),
+          // Animated Robot Illustration
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 200 * scale,
+                height: 200 * scale,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.orange.withOpacity(0.1),
+                      AppColors.orange.withOpacity(0.05),
+                    ],
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.smart_toy_outlined,
+                size: 100 * scale,
+                color: AppColors.orange.withOpacity(0.4),
+              ),
+              Positioned(
+                top: 30 * scale,
+                right: 30 * scale,
+                child: Icon(
+                  Icons.add,
+                  size: 20 * scale,
+                  color: AppColors.orange.withOpacity(0.3),
+                ),
+              ),
+              Positioned(
+                bottom: 30 * scale,
+                left: 30 * scale,
+                child: Icon(
+                  Icons.add,
+                  size: 16 * scale,
+                  color: AppColors.orange.withOpacity(0.3),
+                ),
+              ),
+              Positioned(
+                top: 50 * scale,
+                left: 20 * scale,
+                child: Container(
+                  width: 6 * scale,
+                  height: 6 * scale,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 50 * scale,
+                right: 20 * scale,
+                child: Container(
+                  width: 6 * scale,
+                  height: 6 * scale,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: 24 * scale),
           Text(
-            "No robots connected yet.",
-            textAlign: TextAlign.center,
+            "No Robots Connected",
             style: TextStyle(
-              fontSize: 20 * scale,
+              fontSize: 22 * scale,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
           SizedBox(height: 10 * scale),
-          Text(
-            "Add your first robot to monitor, manage and keep it running smoothly.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14 * scale,
-              color: Colors.grey.shade600,
-              height: 1.4,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 30 * scale),
+            child: Text(
+              "Add your first robot to monitor, manage and keep it running smoothly.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14 * scale,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
             ),
           ),
-          SizedBox(height: 22 * scale),
+          SizedBox(height: 30 * scale),
           _connectRobotButton(scale),
         ],
       ),
     );
   }
 
-  Widget _decorativeRobotIllustration(double scale) {
-    final size = 260 * scale;
-    return SizedBox(
-      height: size,
-      width: double.infinity,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.orange.withOpacity(.10),
-            ),
-          ),
-          Positioned(
-            top: size * 0.06,
-            left: size * 0.06,
-            child: Icon(
-              Icons.add,
-              size: 16 * scale,
-              color: AppColors.orange.withOpacity(.5),
-            ),
-          ),
-          Positioned(
-            top: size * 0.06,
-            right: size * 0.06,
-            child: Icon(
-              Icons.add,
-              size: 16 * scale,
-              color: AppColors.orange.withOpacity(.5),
-            ),
-          ),
-          Positioned(
-            bottom: size * 0.18,
-            right: size * 0.02,
-            child: Icon(
-              Icons.add,
-              size: 14 * scale,
-              color: AppColors.orange.withOpacity(.4),
-            ),
-          ),
-          Positioned(
-            top: size * 0.30,
-            left: size * 0.0,
-            child: Icon(
-              Icons.circle,
-              size: 6 * scale,
-              color: AppColors.orange.withOpacity(.4),
-            ),
-          ),
-          Positioned(
-            top: size * 0.34,
-            right: size * 0.02,
-            child: Icon(
-              Icons.circle,
-              size: 6 * scale,
-              color: AppColors.orange.withOpacity(.4),
-            ),
-          ),
-          SizedBox(
-            width: size * 0.72,
-            height: size * 0.72,
-            child: Image.asset(
-              'assets/images/robot.png',
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(
-                  Icons.smart_toy,
-                  size: size * 0.4,
-                  color: AppColors.orange.withOpacity(.6),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _connectRobotButton(double scale) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.blue,
+          backgroundColor: AppColors.orange,
           foregroundColor: Colors.white,
-          elevation: 3,
           padding: EdgeInsets.symmetric(vertical: 16 * scale),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(16),
           ),
+          elevation: 4,
         ),
         onPressed: _showAddRobotDialog,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.link, size: 20 * scale),
-            SizedBox(width: 8 * scale),
+            Icon(Icons.link, size: 22 * scale),
+            SizedBox(width: 10 * scale),
             Text(
               "Connect Robot",
               style: TextStyle(
@@ -806,7 +876,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
             height: 50 * scale,
             decoration: BoxDecoration(
               color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               isCleaning ? Icons.cleaning_services : Icons.smart_toy,
@@ -865,19 +935,19 @@ class _RobotsScreenState extends State<RobotsScreen> {
                       SizedBox(width: 12 * scale),
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 6 * scale,
-                          vertical: 2 * scale,
+                          horizontal: 8 * scale,
+                          vertical: 3 * scale,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.blue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           "Cleaning",
                           style: TextStyle(
                             fontSize: 10 * scale,
                             color: AppColors.blue,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -895,7 +965,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                   padding: EdgeInsets.all(8 * scale),
                   decoration: BoxDecoration(
                     color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     isOnline ? Icons.wifi : Icons.wifi_off,
@@ -911,7 +981,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                   padding: EdgeInsets.all(8 * scale),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     Icons.delete_outline,
@@ -933,22 +1003,26 @@ class _RobotsScreenState extends State<RobotsScreen> {
       child: Column(
         children: [
           Material(
-            color: AppColors.blue,
+            color: AppColors.orange,
             shape: const CircleBorder(),
             elevation: 4,
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: _showAddRobotDialog,
               child: Padding(
-                padding: EdgeInsets.all(18 * scale),
-                child: Icon(Icons.add, color: Colors.white, size: 26 * scale),
+                padding: EdgeInsets.all(16 * scale),
+                child: Icon(Icons.add, color: Colors.white, size: 28 * scale),
               ),
             ),
           ),
           SizedBox(height: 8 * scale),
           Text(
             "Add New Robot",
-            style: TextStyle(fontSize: 13 * scale, color: Colors.black87),
+            style: TextStyle(
+              fontSize: 13 * scale,
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
