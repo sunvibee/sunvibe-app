@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/notification_service.dart';
 import '../models/notification_model.dart';
+import '../providers/auth_provider.dart';
 
 class RobotsScreen extends StatefulWidget {
   const RobotsScreen({super.key});
@@ -21,6 +23,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   List<Map<String, dynamic>> robots = [];
   bool _isConnecting = false;
   bool _isLoading = true;
+  String? _masterRobotId;
 
   int get totalRobots => robots.length;
   int get onlineRobots => robots.where((r) => r['online'] == true).length;
@@ -36,6 +39,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   void initState() {
     super.initState();
     _loadRobots();
+    _getMasterRobotId();
   }
 
   @override
@@ -44,6 +48,11 @@ class _RobotsScreenState extends State<RobotsScreen> {
     _robotIdController.dispose();
     _robotIdFocusNode.dispose();
     super.dispose();
+  }
+
+  void _getMasterRobotId() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    _masterRobotId = authProvider.robotId;
   }
 
   // Save robots to SharedPreferences
@@ -142,7 +151,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Animated Icon
                 Container(
                   padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -150,7 +158,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.animation,
+                    Icons.smart_toy,
                     color: AppColors.orange,
                     size: 40,
                   ),
@@ -294,6 +302,8 @@ class _RobotsScreenState extends State<RobotsScreen> {
 
     await Future.delayed(Duration(milliseconds: 800));
 
+    final isMaster = robotId == _masterRobotId;
+
     final newRobot = {
       'id': robotId,
       'name': 'SV-$robotId',
@@ -301,6 +311,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
       'battery': 85,
       'cleaning': false,
       'alerts': false,
+      'isMaster': isMaster,
       'lastActive': DateTime.now().toIso8601String(),
     };
 
@@ -332,6 +343,19 @@ class _RobotsScreenState extends State<RobotsScreen> {
 
   void _removeRobot(int index) {
     final robotName = robots[index]['name'];
+    final isMaster = robots[index]['isMaster'] ?? false;
+    
+    if (isMaster) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Cannot remove Master Robot"),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     
     showDialog(
       context: context,
@@ -405,7 +429,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
   Widget build(BuildContext context) {
     final scale = _scale(context);
     final horizontalPadding = (20 * scale).clamp(16, 30).toDouble();
-    final hasRobots = robots.isNotEmpty;
 
     if (_isLoading) {
       return Scaffold(
@@ -416,6 +439,22 @@ class _RobotsScreenState extends State<RobotsScreen> {
           ),
         ),
       );
+    }
+
+    // Ensure master robot is always in the list
+    if (_masterRobotId != null && !robots.any((r) => r['id'] == _masterRobotId)) {
+      final masterRobot = {
+        'id': _masterRobotId,
+        'name': 'SV-$_masterRobotId',
+        'online': true,
+        'battery': 85,
+        'cleaning': false,
+        'alerts': false,
+        'isMaster': true,
+        'lastActive': DateTime.now().toIso8601String(),
+      };
+      robots.insert(0, masterRobot);
+      _saveRobots();
     }
 
     return Scaffold(
@@ -441,9 +480,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     SizedBox(height: 18 * scale),
                     _buildStatsRow(scale),
                     SizedBox(height: 12 * scale),
-                    hasRobots 
-                        ? _buildRobotList(scale)
-                        : _buildEmptyState(scale),
+                    _buildRobotList(scale),
                     SizedBox(height: 20 * scale),
                     _buildAddNewRobot(scale),
                     SizedBox(height: 20 * scale),
@@ -682,141 +719,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
     );
   }
 
-  Widget _buildEmptyState(double scale) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 30 * scale),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Animated Robot Illustration
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 200 * scale,
-                height: 200 * scale,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.orange.withOpacity(0.1),
-                      AppColors.orange.withOpacity(0.05),
-                    ],
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.smart_toy_outlined,
-                size: 100 * scale,
-                color: AppColors.orange.withOpacity(0.4),
-              ),
-              Positioned(
-                top: 30 * scale,
-                right: 30 * scale,
-                child: Icon(
-                  Icons.add,
-                  size: 20 * scale,
-                  color: AppColors.orange.withOpacity(0.3),
-                ),
-              ),
-              Positioned(
-                bottom: 30 * scale,
-                left: 30 * scale,
-                child: Icon(
-                  Icons.add,
-                  size: 16 * scale,
-                  color: AppColors.orange.withOpacity(0.3),
-                ),
-              ),
-              Positioned(
-                top: 50 * scale,
-                left: 20 * scale,
-                child: Container(
-                  width: 6 * scale,
-                  height: 6 * scale,
-                  decoration: BoxDecoration(
-                    color: AppColors.orange.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 50 * scale,
-                right: 20 * scale,
-                child: Container(
-                  width: 6 * scale,
-                  height: 6 * scale,
-                  decoration: BoxDecoration(
-                    color: AppColors.orange.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 24 * scale),
-          Text(
-            "No Robots Connected",
-            style: TextStyle(
-              fontSize: 22 * scale,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          SizedBox(height: 10 * scale),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 30 * scale),
-            child: Text(
-              "Add your first robot to monitor, manage and keep it running smoothly.",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14 * scale,
-                color: Colors.grey.shade600,
-                height: 1.5,
-              ),
-            ),
-          ),
-          SizedBox(height: 30 * scale),
-          _connectRobotButton(scale),
-        ],
-      ),
-    );
-  }
-
-  Widget _connectRobotButton(double scale) {
-    return Container(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.orange,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.symmetric(vertical: 16 * scale),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 4,
-        ),
-        onPressed: _showAddRobotDialog,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.link, size: 22 * scale),
-            SizedBox(width: 10 * scale),
-            Text(
-              "Connect Robot",
-              style: TextStyle(
-                fontSize: 16 * scale,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRobotList(double scale) {
     final filteredRobots = _searchController.text.isEmpty
         ? robots
@@ -827,16 +729,24 @@ class _RobotsScreenState extends State<RobotsScreen> {
           ).toList();
 
     if (filteredRobots.isEmpty) {
-      return Padding(
-        padding: EdgeInsets.symmetric(vertical: 20 * scale),
-        child: Center(
-          child: Text(
-            "No robots found",
-            style: TextStyle(
-              fontSize: 16 * scale,
-              color: Colors.grey.shade600,
+      return Container(
+        padding: EdgeInsets.symmetric(vertical: 40 * scale),
+        child: Column(
+          children: [
+            Icon(
+              Icons.smart_toy_outlined,
+              size: 80 * scale,
+              color: Colors.grey.shade300,
             ),
-          ),
+            SizedBox(height: 16 * scale),
+            Text(
+              "No robots connected",
+              style: TextStyle(
+                fontSize: 16 * scale,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -854,6 +764,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
     final isOnline = robot['online'] ?? false;
     final battery = robot['battery'] ?? 0;
     final isCleaning = robot['cleaning'] ?? false;
+    final isMaster = robot['isMaster'] ?? false;
 
     return Container(
       margin: EdgeInsets.only(bottom: 12 * scale),
@@ -861,6 +772,9 @@ class _RobotsScreenState extends State<RobotsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: isMaster 
+            ? Border.all(color: AppColors.orange, width: 2)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.08),
@@ -889,13 +803,38 @@ class _RobotsScreenState extends State<RobotsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  robot['name'] ?? 'Robot',
-                  style: TextStyle(
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      robot['name'] ?? 'Robot',
+                      style: TextStyle(
+                        fontSize: 16 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    if (isMaster) ...[
+                      SizedBox(width: 8 * scale),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8 * scale,
+                          vertical: 2 * scale,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          "MASTER",
+                          style: TextStyle(
+                            fontSize: 8 * scale,
+                            color: AppColors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 SizedBox(height: 4 * scale),
                 Row(
@@ -974,22 +913,24 @@ class _RobotsScreenState extends State<RobotsScreen> {
                   ),
                 ),
               ),
-              SizedBox(width: 8 * scale),
-              GestureDetector(
-                onTap: () => _removeRobot(index),
-                child: Container(
-                  padding: EdgeInsets.all(8 * scale),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.delete_outline,
-                    color: Colors.red,
-                    size: 18 * scale,
+              if (!isMaster) ...[
+                SizedBox(width: 8 * scale),
+                GestureDetector(
+                  onTap: () => _removeRobot(index),
+                  child: Container(
+                    padding: EdgeInsets.all(8 * scale),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 18 * scale,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ],
