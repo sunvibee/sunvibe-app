@@ -43,7 +43,7 @@ class AuthProvider extends ChangeNotifier {
       await prefs.setBool('isLoggedIn', true);
       await prefs.setString('robotId', robotId);
       await prefs.setString('userName', userName);
-      
+
       _isLoggedIn = true;
       _robotId = robotId;
       _userName = userName;
@@ -61,7 +61,7 @@ class AuthProvider extends ChangeNotifier {
       await prefs.remove('isLoggedIn');
       await prefs.remove('robotId');
       await prefs.remove('userName');
-      
+
       _isLoggedIn = false;
       _robotId = null;
       _userName = null;

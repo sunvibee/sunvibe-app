@@ -30,12 +30,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       canPop: false,
       onPopInvoked: (bool didPop) async {
         if (didPop) return;
-        
+
         if (_isExiting) return;
-        
+
         if (currentIndex == 0) {
           _isExiting = true;
-          
+
           final shouldExit = await showDialog<bool>(
             context: context,
             barrierDismissible: false,
@@ -56,10 +56,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(
-          index: currentIndex,
-          children: pages,
-        ),
+        body: IndexedStack(index: currentIndex, children: pages),
         bottomNavigationBar: BottomNavBar(
           currentIndex: currentIndex,
           onTap: (index) {
@@ -74,19 +71,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildExitDialog(BuildContext context) {
     final scale = MediaQuery.of(context).size.width / 375;
-    
+
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       elevation: 0,
       backgroundColor: Colors.white,
       child: Container(
         padding: EdgeInsets.all(24 * scale),
-        constraints: BoxConstraints(
-          maxWidth: 340 * scale,
-        ),
+        constraints: BoxConstraints(maxWidth: 340 * scale),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -105,7 +98,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ),
             SizedBox(height: 20 * scale),
-            
+
             // Title
             Text(
               "Exit SunVibee?",
@@ -117,7 +110,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ),
             SizedBox(height: 10 * scale),
-            
+
             // Description
             Text(
               "Are you sure you want to close the app?\nYour robot will continue cleaning.",
@@ -129,14 +122,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ),
             SizedBox(height: 24 * scale),
-            
+
             // Divider
-            Divider(
-              height: 1,
-              color: Colors.grey.shade200,
-            ),
+            Divider(height: 1, color: Colors.grey.shade200),
             SizedBox(height: 16 * scale),
-            
+
             // Buttons
             Row(
               children: [

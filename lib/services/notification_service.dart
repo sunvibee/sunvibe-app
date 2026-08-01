@@ -12,38 +12,39 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = 
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  
+
   // List to store all notifications
   List<NotificationItem> _notifications = [];
-  
+
   // Getter for notifications
   List<NotificationItem> get notifications => _notifications;
 
   Future<void> init() async {
     tz.initializeTimeZones();
-    
+
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    
+
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
           requestAlertPermission: true,
           requestBadgePermission: true,
           requestSoundPermission: true,
         );
-    
-    const InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+
+    const InitializationSettings initializationSettings =
+        InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsIOS,
+        );
 
     await flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
     );
-    
+
     // Load saved notifications
     await _loadNotifications();
   }
@@ -55,7 +56,9 @@ class NotificationService {
   Future<void> _saveNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final List<String> notificationJsonList = _notifications.map((n) => jsonEncode(n.toJson())).toList();
+      final List<String> notificationJsonList = _notifications
+          .map((n) => jsonEncode(n.toJson()))
+          .toList();
       await prefs.setStringList('notifications', notificationJsonList);
     } catch (e) {
       print('Error saving notifications: $e');
@@ -65,11 +68,15 @@ class NotificationService {
   Future<void> _loadNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final List<String>? notificationJsonList = prefs.getStringList('notifications');
-      
+      final List<String>? notificationJsonList = prefs.getStringList(
+        'notifications',
+      );
+
       if (notificationJsonList != null) {
         _notifications = notificationJsonList
-            .map((jsonString) => NotificationItem.fromJson(jsonDecode(jsonString)))
+            .map(
+              (jsonString) => NotificationItem.fromJson(jsonDecode(jsonString)),
+            )
             .toList();
         // Sort by timestamp (newest first)
         _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
@@ -96,7 +103,7 @@ class NotificationService {
       type: type,
     );
     _notifications.insert(0, notification);
-    
+
     // Save to SharedPreferences
     await _saveNotifications();
 
@@ -119,10 +126,10 @@ class NotificationService {
 
     const DarwinNotificationDetails iosPlatformChannelSpecifics =
         DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        );
 
     final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,

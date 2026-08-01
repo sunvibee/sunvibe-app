@@ -52,7 +52,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   void _showNotification(String title, String message, NotificationType type) {
     final color = _getNotificationColor(type);
     _showFeedback(message, color);
-    
+
     NotificationService().showNotification(
       title: title,
       body: message,
@@ -78,7 +78,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
     if (_isDialogOpen) return;
     _isDialogOpen = true;
     _robotIdController.clear();
-    
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -107,10 +107,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
               children: [
                 Text(
                   "Enter the Robot ID to connect",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                 ),
                 SizedBox(height: 16),
                 TextField(
@@ -118,7 +115,10 @@ class _RobotsScreenState extends State<RobotsScreen> {
                   autofocus: true,
                   decoration: InputDecoration(
                     hintText: "Enter Robot ID",
-                    prefixIcon: Icon(Icons.precision_manufacturing, color: AppColors.orange),
+                    prefixIcon: Icon(
+                      Icons.precision_manufacturing,
+                      color: AppColors.orange,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: Colors.grey.shade300),
@@ -146,14 +146,13 @@ class _RobotsScreenState extends State<RobotsScreen> {
                 ),
                 child: Text(
                   "Cancel",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
                 ),
               ),
               ElevatedButton(
-                onPressed: _isConnecting ? null : () => _connectRobot(context, setDialogState),
+                onPressed: _isConnecting
+                    ? null
+                    : () => _connectRobot(context, setDialogState),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.orange,
                   foregroundColor: Colors.white,
@@ -190,7 +189,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
 
   void _connectRobot(BuildContext context, StateSetter setDialogState) async {
     final robotId = _robotIdController.text.trim();
-    
+
     if (robotId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -250,7 +249,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
     // Close dialog
     _isDialogOpen = false;
     Navigator.pop(context);
-    
+
     // Show success snackbar
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -264,13 +263,11 @@ class _RobotsScreenState extends State<RobotsScreen> {
 
   void _removeRobot(int index) {
     final robotName = robots[index]['name'];
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(
           "Remove Robot",
           style: TextStyle(
@@ -298,7 +295,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                 robots.removeAt(index);
               });
               Navigator.pop(context);
-              
+
               _showNotification(
                 '🗑️ Robot Removed',
                 '$robotName has been removed',
@@ -360,7 +357,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     SizedBox(height: 18 * scale),
                     _buildStatsRow(scale),
                     SizedBox(height: 12 * scale),
-                    hasRobots 
+                    hasRobots
                         ? _buildRobotList(scale)
                         : _buildEmptyState(scale),
                     SizedBox(height: 20 * scale),
@@ -750,11 +747,13 @@ class _RobotsScreenState extends State<RobotsScreen> {
   Widget _buildRobotList(double scale) {
     final filteredRobots = _searchController.text.isEmpty
         ? robots
-        : robots.where((r) => 
-            r['id'].toString().toLowerCase().contains(
-              _searchController.text.toLowerCase()
-            )
-          ).toList();
+        : robots
+              .where(
+                (r) => r['id'].toString().toLowerCase().contains(
+                  _searchController.text.toLowerCase(),
+                ),
+              )
+              .toList();
 
     if (filteredRobots.isEmpty) {
       return Padding(
@@ -762,10 +761,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         child: Center(
           child: Text(
             "No robots found",
-            style: TextStyle(
-              fontSize: 16 * scale,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 16 * scale, color: Colors.grey.shade600),
           ),
         ),
       );
@@ -805,7 +801,9 @@ class _RobotsScreenState extends State<RobotsScreen> {
             width: 50 * scale,
             height: 50 * scale,
             decoration: BoxDecoration(
-              color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.grey.shade100,
+              color: isOnline
+                  ? AppColors.green.withOpacity(0.1)
+                  : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -894,7 +892,9 @@ class _RobotsScreenState extends State<RobotsScreen> {
                 child: Container(
                   padding: EdgeInsets.all(8 * scale),
                   decoration: BoxDecoration(
-                    color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                    color: isOnline
+                        ? AppColors.green.withOpacity(0.1)
+                        : Colors.red.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(

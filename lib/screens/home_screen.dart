@@ -65,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showNotification(String title, String message, NotificationType type) {
     final color = _getNotificationColor(type);
     _showFeedback(message, color);
-    
+
     NotificationService().showNotification(
       title: title,
       body: message,
@@ -389,11 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.grey.shade200,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              size: 18 * scale,
-              color: Colors.black87,
-            ),
+            child: Icon(icon, size: 18 * scale, color: Colors.black87),
           ),
           SizedBox(width: 12 * scale),
           Expanded(

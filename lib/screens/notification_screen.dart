@@ -39,8 +39,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[month - 1];
   }
@@ -49,11 +59,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text('Clear All Notifications'),
-        content: const Text('Are you sure you want to clear all notifications?'),
+        content: const Text(
+          'Are you sure you want to clear all notifications?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -92,11 +102,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text('Delete ${selectedIndices.length} Notification(s)'),
-        content: const Text('Are you sure you want to delete these notifications?'),
+        content: const Text(
+          'Are you sure you want to delete these notifications?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -109,7 +119,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             onPressed: () async {
               setState(() {
-                final sortedIndices = selectedIndices.toList()..sort((a, b) => b.compareTo(a));
+                final sortedIndices = selectedIndices.toList()
+                  ..sort((a, b) => b.compareTo(a));
                 for (var index in sortedIndices) {
                   NotificationService().removeNotificationSync(index);
                   notifications.removeAt(index);
@@ -196,7 +207,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Expanded(
               child: hasNotifications
                   ? ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                      ),
                       itemCount: notifications.length,
                       itemBuilder: (context, index) {
                         final notification = notifications[index];
@@ -219,9 +232,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             constraints: BoxConstraints(
                               minHeight: constraints.maxHeight,
                             ),
-                            child: Center(
-                              child: _buildEmptyState(scale),
-                            ),
+                            child: Center(child: _buildEmptyState(scale)),
                           ),
                         );
                       },
@@ -238,9 +249,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return (width / 375).clamp(0.85, 1.3);
   }
 
-  Widget _buildTopBar(BuildContext context, double scale, bool hasNotifications) {
+  Widget _buildTopBar(
+    BuildContext context,
+    double scale,
+    bool hasNotifications,
+  ) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 10 * scale),
+      padding: EdgeInsets.symmetric(
+        horizontal: 14 * scale,
+        vertical: 10 * scale,
+      ),
       child: Row(
         children: [
           Material(
@@ -267,8 +285,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           Expanded(
             child: Text(
-              isSelectionMode 
-                  ? '${selectedIndices.length} Selected' 
+              isSelectionMode
+                  ? '${selectedIndices.length} Selected'
                   : 'Notifications',
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -333,7 +351,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: GestureDetector(
         onTap: enabled ? onTap : null,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 10 * scale, vertical: 6 * scale),
+          padding: EdgeInsets.symmetric(
+            horizontal: 10 * scale,
+            vertical: 6 * scale,
+          ),
           decoration: BoxDecoration(
             color: Colors.grey.shade100,
             borderRadius: BorderRadius.circular(16),
@@ -385,14 +406,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         margin: EdgeInsets.only(bottom: 10 * scale),
         padding: EdgeInsets.all(14 * scale),
         decoration: BoxDecoration(
-          color: isSelected 
-              ? AppColors.blue.withOpacity(0.1) 
-              : Colors.white,
+          color: isSelected ? AppColors.blue.withOpacity(0.1) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected 
-                ? AppColors.blue 
-                : Colors.grey.shade200,
+            color: isSelected ? AppColors.blue : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
           boxShadow: [
@@ -451,7 +468,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           notification.title,
                           style: TextStyle(
                             fontSize: 14 * scale,
-                            fontWeight: isRead ? FontWeight.w500 : FontWeight.w600,
+                            fontWeight: isRead
+                                ? FontWeight.w500
+                                : FontWeight.w600,
                             color: isRead ? Colors.grey.shade600 : Colors.black,
                           ),
                         ),
@@ -472,7 +491,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     notification.message,
                     style: TextStyle(
                       fontSize: 12.5 * scale,
-                      color: isRead ? Colors.grey.shade500 : Colors.grey.shade700,
+                      color: isRead
+                          ? Colors.grey.shade500
+                          : Colors.grey.shade700,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -544,22 +565,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Positioned(
             top: size * 0.14,
             left: size * 0.12,
-            child: Icon(Icons.add, size: 12 * scale, color: AppColors.orange.withOpacity(.35)),
+            child: Icon(
+              Icons.add,
+              size: 12 * scale,
+              color: AppColors.orange.withOpacity(.35),
+            ),
           ),
           Positioned(
             top: size * 0.18,
             right: size * 0.14,
-            child: Icon(Icons.add, size: 10 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(
+              Icons.add,
+              size: 10 * scale,
+              color: AppColors.orange.withOpacity(.3),
+            ),
           ),
           Positioned(
             bottom: size * 0.18,
             left: size * 0.16,
-            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(
+              Icons.circle,
+              size: 5 * scale,
+              color: AppColors.orange.withOpacity(.3),
+            ),
           ),
           Positioned(
             bottom: size * 0.20,
             right: size * 0.12,
-            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(
+              Icons.circle,
+              size: 5 * scale,
+              color: AppColors.orange.withOpacity(.3),
+            ),
           ),
           Icon(
             Icons.notifications_none_rounded,

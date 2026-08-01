@@ -33,21 +33,17 @@ class _SplashScreenState extends State<SplashScreen>
     _navigationTimer = Timer(const Duration(seconds: 3), () async {
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final isLoggedIn = await auth.checkSession();
-      
+
       if (mounted) {
         if (isLoggedIn) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => const MainNavigationScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
           );
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => const LoginScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
           );
         }
       }

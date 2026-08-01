@@ -5,10 +5,7 @@ import 'screens/splash_screen.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: const MyApp(),
-    ),
+    ChangeNotifierProvider(create: (_) => AuthProvider(), child: const MyApp()),
   );
 }
 
@@ -20,10 +17,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: "Sunvibee",
-      theme: ThemeData(
-        primarySwatch: Colors.orange,
-        useMaterial3: true,
-      ),
+      theme: ThemeData(primarySwatch: Colors.orange, useMaterial3: true),
       home: const SplashScreen(),
     );
   }

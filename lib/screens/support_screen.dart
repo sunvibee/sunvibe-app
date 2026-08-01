@@ -36,12 +36,9 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Future<void> _makePhoneCall(String phoneNumber) async {
     final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
-    
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: cleanNumber,
-    );
-    
+
+    final Uri launchUri = Uri(scheme: 'tel', path: cleanNumber);
+
     try {
       if (await canLaunchUrl(launchUri)) {
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
@@ -54,15 +51,17 @@ class _SupportScreenState extends State<SupportScreen> {
     }
   }
 
-  void _showQuickHelpDialog(String title, String description, List<String> steps) {
+  void _showQuickHelpDialog(
+    String title,
+    String description,
+    List<String> steps,
+  ) {
     final scale = _scale(context);
-    
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: MediaQuery.of(context).size.width * 0.92,
           constraints: BoxConstraints(
@@ -143,7 +142,8 @@ class _SupportScreenState extends State<SupportScreen> {
                 child: ListView.separated(
                   padding: EdgeInsets.zero,
                   itemCount: steps.length,
-                  separatorBuilder: (context, index) => SizedBox(height: 10 * scale),
+                  separatorBuilder: (context, index) =>
+                      SizedBox(height: 10 * scale),
                   itemBuilder: (context, index) {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,36 +215,39 @@ class _SupportScreenState extends State<SupportScreen> {
 
   void _showFaqDialog() {
     final scale = _scale(context);
-    
+
     final faqs = [
       {
         "question": "How often should I clean my solar panels?",
-        "answer": "We recommend cleaning your solar panels every 2-3 months, or more frequently if you live in a dusty area. Regular cleaning ensures maximum energy efficiency."
+        "answer":
+            "We recommend cleaning your solar panels every 2-3 months, or more frequently if you live in a dusty area. Regular cleaning ensures maximum energy efficiency.",
       },
       {
         "question": "How does the SunVibee robot work?",
-        "answer": "SunVibee robot uses advanced sensors and AI to navigate your solar panels, removing dust, dirt, and debris. It's completely autonomous and can be controlled via the app."
+        "answer":
+            "SunVibee robot uses advanced sensors and AI to navigate your solar panels, removing dust, dirt, and debris. It's completely autonomous and can be controlled via the app.",
       },
       {
         "question": "Is the robot safe for my solar panels?",
-        "answer": "Yes! SunVibee robots are designed with soft, non-abrasive brushes and gentle cleaning mechanisms. They're tested to ensure they don't scratch or damage your panels."
+        "answer":
+            "Yes! SunVibee robots are designed with soft, non-abrasive brushes and gentle cleaning mechanisms. They're tested to ensure they don't scratch or damage your panels.",
       },
       {
         "question": "What happens if the robot gets stuck?",
-        "answer": "The robot has built-in sensors to detect obstacles. If it gets stuck, it will stop and notify you through the app so you can assist it."
+        "answer":
+            "The robot has built-in sensors to detect obstacles. If it gets stuck, it will stop and notify you through the app so you can assist it.",
       },
       {
         "question": "How do I maintain my SunVibee robot?",
-        "answer": "Regular maintenance includes cleaning the brushes, checking for debris, and keeping the sensors clean. Refer to the user manual for detailed maintenance instructions."
+        "answer":
+            "Regular maintenance includes cleaning the brushes, checking for debris, and keeping the sensors clean. Refer to the user manual for detailed maintenance instructions.",
       },
     ];
 
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           width: MediaQuery.of(context).size.width * 0.92,
           constraints: BoxConstraints(
@@ -286,10 +289,8 @@ class _SupportScreenState extends State<SupportScreen> {
                 child: ListView.separated(
                   padding: EdgeInsets.zero,
                   itemCount: faqs.length,
-                  separatorBuilder: (context, index) => Divider(
-                    height: 1,
-                    color: Colors.grey.shade200,
-                  ),
+                  separatorBuilder: (context, index) =>
+                      Divider(height: 1, color: Colors.grey.shade200),
                   itemBuilder: (context, index) {
                     final faq = faqs[index];
                     return _buildFaqItem(
@@ -627,13 +628,9 @@ class _SupportScreenState extends State<SupportScreen> {
         SizedBox(height: 16 * scale),
         Row(
           children: [
-            Expanded(
-              child: _supportCard(scale, options[0]),
-            ),
+            Expanded(child: _supportCard(scale, options[0])),
             SizedBox(width: 12 * scale),
-            Expanded(
-              child: _supportCard(scale, options[1]),
-            ),
+            Expanded(child: _supportCard(scale, options[1])),
           ],
         ),
       ],
@@ -657,7 +654,10 @@ class _SupportScreenState extends State<SupportScreen> {
         decoration: BoxDecoration(
           color: option["bgColor"],
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: option["color"].withOpacity(.2), width: 1.5),
+          border: Border.all(
+            color: option["color"].withOpacity(.2),
+            width: 1.5,
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -703,45 +703,49 @@ class _SupportScreenState extends State<SupportScreen> {
       {
         "icon": Icons.wifi_off_outlined,
         "label": "Robot won't connect",
-        "description": "If your SunVibee robot is not connecting to the app or network, follow these troubleshooting steps.",
+        "description":
+            "If your SunVibee robot is not connecting to the app or network, follow these troubleshooting steps.",
         "steps": [
           "Make sure your robot is powered ON and charged.",
           "Check if your smartphone's Bluetooth and WiFi are turned ON.",
           "Restart the robot by turning it OFF and ON again.",
           "Reset the robot's network settings by pressing the reset button for 5 seconds.",
-          "If the issue persists, contact support for further assistance."
-        ]
+          "If the issue persists, contact support for further assistance.",
+        ],
       },
       {
         "icon": Icons.pause_circle_outline,
         "label": "Cleaning stopped",
-        "description": "If your robot stops cleaning unexpectedly during a session, here's what you can do.",
+        "description":
+            "If your robot stops cleaning unexpectedly during a session, here's what you can do.",
         "steps": [
           "Check if the robot has run out of battery. If so, place it on the charging dock.",
           "Check for any physical obstructions like debris or objects blocking the robot.",
           "Ensure the water tank is not empty (if using water-based cleaning).",
           "Check if the robot is stuck on a rough surface or edge.",
           "Restart the cleaning session from the app.",
-          "If the problem continues, perform a soft reset by holding the power button."
-        ]
+          "If the problem continues, perform a soft reset by holding the power button.",
+        ],
       },
       {
         "icon": Icons.battery_alert_outlined,
         "label": "Battery problem",
-        "description": "If your robot is experiencing battery issues, follow these steps to diagnose and resolve the problem.",
+        "description":
+            "If your robot is experiencing battery issues, follow these steps to diagnose and resolve the problem.",
         "steps": [
           "Check if the robot is properly connected to the charging dock.",
           "Ensure the charging dock is plugged into a working power outlet.",
           "Clean the charging contacts on both the robot and the dock.",
           "Allow the robot to charge for at least 3-4 hours without interruption.",
           "If the battery drains quickly, check if the robot is in power-saving mode.",
-          "If the issue persists, the battery may need replacement. Contact support."
-        ]
+          "If the issue persists, the battery may need replacement. Contact support.",
+        ],
       },
       {
         "icon": Icons.signal_wifi_off,
         "label": "WiFi issue",
-        "description": "If your robot is having WiFi connectivity problems, follow these troubleshooting steps.",
+        "description":
+            "If your robot is having WiFi connectivity problems, follow these troubleshooting steps.",
         "steps": [
           "Check if your home WiFi network is working properly.",
           "Ensure the robot is within range of your WiFi router.",
@@ -749,8 +753,8 @@ class _SupportScreenState extends State<SupportScreen> {
           "Check if there are too many devices connected to your network.",
           "Try connecting the robot to a 2.4GHz WiFi network (5GHz may not work).",
           "Reset the robot's WiFi settings and reconnect from the app.",
-          "If the problem persists, try forgetting the network and reconnecting."
-        ]
+          "If the problem persists, try forgetting the network and reconnecting.",
+        ],
       },
     ];
 
@@ -774,7 +778,7 @@ class _SupportScreenState extends State<SupportScreen> {
             final padding = 20 * scale;
             final spacing = 12 * scale;
             final cardWidth = (screenWidth - padding * 2 - spacing) / 2;
-            
+
             return SizedBox(
               width: cardWidth.clamp(140, 220),
               child: _quickHelpCard(scale, item),
