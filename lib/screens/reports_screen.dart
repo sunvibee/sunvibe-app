@@ -108,12 +108,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         SizedBox(width: 8 * scale),
         _headerIconButton(
           scale,
-          Icons.search,
-          onTap: () => _showFeedback("Search reports", AppColors.navy),
-        ),
-        SizedBox(width: 8 * scale),
-        _headerIconButton(
-          scale,
           Icons.file_download_outlined,
           onTap: () => _showFeedback("Download reports", AppColors.blue),
         ),
