@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'robots_screen.dart';
 import 'reports_screen.dart';
 import 'support_screen.dart';
@@ -7,6 +8,7 @@ import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
 import '../services/notification_service.dart';
 import '../models/notification_model.dart';
+import '../providers/auth_provider.dart';
 
 enum RobotState { online, stopped, resumed, emergencyStopped }
 
@@ -49,6 +51,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Color get _statusColor => _isOnline ? AppColors.green : AppColors.red;
 
+  String get _masterRobotId {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return authProvider.robotId ?? 'SV-001';
+  }
+
   void _showFeedback(String message, Color color) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -65,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showNotification(String title, String message, NotificationType type) {
     final color = _getNotificationColor(type);
     _showFeedback(message, color);
-    
+
     NotificationService().showNotification(
       title: title,
       body: message,
@@ -92,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => robotState = RobotState.online);
     _showNotification(
       '✅ Robot Started',
-      'Robot SV-001 has started cleaning',
+      'Robot $_masterRobotId has started cleaning',
       NotificationType.success,
     );
   }
@@ -102,30 +109,30 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => robotState = RobotState.stopped);
     _showNotification(
       '⏹️ Robot Stopped',
-      'Robot SV-001 has stopped cleaning',
+      'Robot $_masterRobotId has stopped cleaning',
       NotificationType.warning,
     );
   }
 
-  void _onResume() {
-    MQTTService.instance.publish("ON");
-    setState(() => robotState = RobotState.resumed);
-    _showNotification(
-      '🔄 Robot Resumed',
-      'Robot SV-001 has resumed cleaning',
-      NotificationType.info,
-    );
-  }
+  // void _onResume() {
+  //   MQTTService.instance.publish("ON");
+  //   setState(() => robotState = RobotState.resumed);
+  //   _showNotification(
+  //     '🔄 Robot Resumed',
+  //     'Robot $_masterRobotId has resumed cleaning',
+  //     NotificationType.info,
+  //   );
+  // }
 
-  void _onEmergencyStop() {
-    MQTTService.instance.publish("OFF");
-    setState(() => robotState = RobotState.emergencyStopped);
-    _showNotification(
-      '⚠️ Emergency Stop',
-      'Emergency stop activated on Robot SV-001',
-      NotificationType.error,
-    );
-  }
+  // void _onEmergencyStop() {
+  //   MQTTService.instance.publish("OFF");
+  //   setState(() => robotState = RobotState.emergencyStopped);
+  //   _showNotification(
+  //     '⚠️ Emergency Stop',
+  //     'Emergency stop activated on Robot $_masterRobotId',
+  //     NotificationType.error,
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -233,16 +240,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRobotStatusCard(double scale) {
+    final masterRobotId = _masterRobotId;
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(22 * scale),
+      padding: EdgeInsets.all(24 * scale),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppColors.orange, AppColors.orangeDark],
         ),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
             color: AppColors.orange.withOpacity(.35),
@@ -254,18 +263,22 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Robot Status",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22 * scale,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  "Robot Status",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22 * scale,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              SizedBox(width: 8 * scale),
               Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: 12 * scale,
@@ -279,8 +292,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 6 * scale,
-                      height: 6 * scale,
+                      width: 8 * scale,
+                      height: 8 * scale,
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -302,16 +315,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SizedBox(height: 18 * scale),
 
-          // Status Pill - Full Width
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(
-              horizontal: 18 * scale,
-              vertical: 14 * scale,
+              horizontal: 20 * scale,
+              vertical: 16 * scale,
             ),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -325,29 +337,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 SizedBox(width: 12 * scale),
-                Text(
-                  _statusLabel,
-                  style: TextStyle(
-                    color: _statusColor,
-                    fontSize: 20 * scale,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
+                Flexible(
+                  child: Text(
+                    _statusLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _statusColor,
+                      fontSize: 20 * scale,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(height: 16 * scale),
+          SizedBox(height: 18 * scale),
 
-          // ID Cards in a Row
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _idCard(
                   scale: scale,
                   icon: Icons.smart_toy_outlined,
                   label: "Master Robot ID",
-                  value: "SV-001",
+                  value: masterRobotId,
                 ),
               ),
               SizedBox(width: 14 * scale),
@@ -356,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   scale: scale,
                   icon: Icons.router_outlined,
                   label: "Gateway ID",
-                  value: "GW-25-1847",
+                  value: "N/A",
                 ),
               ),
             ],
@@ -373,35 +390,33 @@ class _HomeScreenState extends State<HomeScreen> {
     required String value,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 14 * scale,
-        vertical: 12 * scale,
-      ),
+      width: double.infinity,
+      padding: EdgeInsets.all(14 * scale),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: EdgeInsets.all(8 * scale),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              size: 18 * scale,
-              color: Colors.black87,
-            ),
-          ),
-          SizedBox(width: 12 * scale),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(6 * scale),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 14 * scale,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(width: 8 * scale),
+              Expanded(
+                child: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -411,18 +426,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(height: 2 * scale),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+          SizedBox(height: 10 * scale),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15 * scale,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
             ),
           ),
         ],
@@ -434,7 +449,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: _controlCard(
@@ -459,33 +473,33 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        SizedBox(height: 14 * scale),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.autorenew_rounded,
-                title: "Resume",
-                subtitle: "Resume Cleaning",
-                background: AppColors.blue,
-                onTap: _onResume,
-              ),
-            ),
-            SizedBox(width: 14 * scale),
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.warning_rounded,
-                title: "Emergency Stop",
-                subtitle: "Immediate Stop",
-                background: AppColors.red,
-                onTap: _onEmergencyStop,
-              ),
-            ),
-          ],
-        ),
+        // Resume and Emergency buttons commented out
+        // SizedBox(height: 14 * scale),
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: _controlCard(
+        //         scale: scale,
+        //         icon: Icons.autorenew_rounded,
+        //         title: "Resume",
+        //         subtitle: "Resume Task",
+        //         background: AppColors.blue,
+        //         onTap: _onResume,
+        //       ),
+        //     ),
+        //     SizedBox(width: 14 * scale),
+        //     Expanded(
+        //       child: _controlCard(
+        //         scale: scale,
+        //         icon: Icons.warning_rounded,
+        //         title: "Emergency",
+        //         subtitle: "Immediate Stop",
+        //         background: AppColors.red,
+        //         onTap: _onEmergencyStop,
+        //       ),
+        //     ),
+        //   ],
+        // ),
       ],
     );
   }
@@ -500,49 +514,59 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return Material(
       color: background,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(16),
       elevation: 2,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          constraints: BoxConstraints(minHeight: 108 * scale),
-          padding: EdgeInsets.all(16 * scale),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: 16 * scale,
+            vertical: 14 * scale,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: 22 * scale,
-                backgroundColor: Colors.white,
-                child: Icon(icon, color: background, size: 24 * scale),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  CircleAvatar(
+                    radius: 18 * scale,
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 20 * scale,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white.withOpacity(0.7),
+                    size: 14 * scale,
+                  ),
+                ],
               ),
-              SizedBox(width: 12 * scale),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17 * scale,
-                      ),
-                    ),
-                    SizedBox(height: 3 * scale),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(.85),
-                        fontSize: 12.5 * scale,
-                      ),
-                    ),
-                  ],
+              SizedBox(height: 12 * scale),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17 * scale,
+                ),
+              ),
+              SizedBox(height: 2 * scale),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.85),
+                  fontSize: 12.5 * scale,
                 ),
               ),
             ],

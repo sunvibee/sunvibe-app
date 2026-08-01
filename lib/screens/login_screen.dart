@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool obscurePassword = true;
   bool isLoading = false;
 
-  final String validRobotId = "SunVibee";
+  final String validRobotId = "SunVib";
   final String validPassword = "SunVibee@123";
 
   void login() async {
