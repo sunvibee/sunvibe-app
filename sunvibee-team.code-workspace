@@ -1,0 +1,126 @@
+{
+  "folders": [
+    {
+      "name": "sunvibee_app",
+      "path": "."
+    }
+  ],
+  "settings": {
+    // ── Git ────────────────────────────────────────────────────────────────
+    "git.fetchOnPull": true,
+    "git.autofetch": true,
+    "git.autofetchPeriod": 180,
+    "git.pruneOnFetch": true,
+    "git.showActionButton": {
+      "commit": true,
+      "publish": true,
+      "sync": true
+    },
+    // Always pull with rebase to keep branch history linear
+    "git.rebaseWhenSync": true,
+    // Warn before creating new local branches not tracking a remote
+    "git.branchProtection": [
+      "main",
+      "staging"
+    ],
+    "git.branchProtectionPrompt": "alwaysCommitToNewBranch",
+    // Show remote branches prominently in source control panel
+    "git.showRemoteHead": true,
+
+    // ── Editor ─────────────────────────────────────────────────────────────
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+  },
+  "extensions": {
+    "recommendations": [
+      // Flutter & Dart
+      "dart-code.flutter",
+      "dart-code.dart-code",
+      // Git & collaboration
+      "eamodio.gitlens",
+      "mhutchie.git-graph",
+      "github.vscode-pull-request-github",
+      // Code quality
+      "editorconfig.editorconfig"
+    ],
+    "unwantedRecommendations": []
+  },
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Switch to: staging",
+        "type": "shell",
+        "command": "git fetch origin && git checkout staging && git pull origin staging",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: server-db",
+        "type": "shell",
+        "command": "git fetch origin && git checkout server-db && git pull origin server-db",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: main",
+        "type": "shell",
+        "command": "git fetch origin && git checkout main && git pull origin main",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: auth",
+        "type": "shell",
+        "command": "git fetch origin && git checkout auth && git pull origin auth",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: robot-screen",
+        "type": "shell",
+        "command": "git fetch origin && git checkout robot-screen && git pull origin robot-screen",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: notifications",
+        "type": "shell",
+        "command": "git fetch origin && git checkout notifications && git pull origin notifications",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: reports",
+        "type": "shell",
+        "command": "git fetch origin && git checkout reports && git pull origin reports",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Switch to: support",
+        "type": "shell",
+        "command": "git fetch origin && git checkout support && git pull origin support",
+        "group": "none",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "flutter: run",
+        "type": "shell",
+        "command": "flutter run",
+        "group": "build",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "flutter: pub get",
+        "type": "shell",
+        "command": "flutter pub get",
+        "group": "build",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      }
+    ]
+  }
+}
