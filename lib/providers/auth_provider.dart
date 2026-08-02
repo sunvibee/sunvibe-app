@@ -26,12 +26,6 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     try {
       final prefs = await SharedPreferences.getInstance();
-<<<<<<< HEAD
-      _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      _robotId = prefs.getString('robotId');
-      _userName = prefs.getString('userName');
-      print('🔵 Session loaded: isLoggedIn=$_isLoggedIn');
-=======
       _token = prefs.getString('authToken');
       final storedUserId = prefs.getInt('userId');
       final storedUsername = prefs.getString('userName');
@@ -44,7 +38,6 @@ class AuthProvider extends ChangeNotifier {
         );
         _isLoggedIn = true;
       }
->>>>>>> 04a289a6ec324868af7862c6edf577ce122cb349
     } catch (e) {
       _isLoggedIn = false;
     } finally {
@@ -53,61 +46,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-<<<<<<< HEAD
-  Future<void> login({
-    required String robotId,
-    required String userName,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('robotId', robotId);
-      await prefs.setString('userName', userName);
-      
-      _isLoggedIn = true;
-      _robotId = robotId;
-      _userName = userName;
-      print('🟢 Login successful: isLoggedIn=$_isLoggedIn');
-      notifyListeners();
-    } catch (e) {
-      print('🔴 Error during login: $e');
-      throw e;
-    }
-  }
-
-  Future<void> logout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('isLoggedIn');
-      await prefs.remove('robotId');
-      await prefs.remove('userName');
-      
-      _isLoggedIn = false;
-      _robotId = null;
-      _userName = null;
-      print('🔴 Logout successful');
-      notifyListeners();
-    } catch (e) {
-      print('🔴 Error during logout: $e');
-      throw e;
-    }
-  }
-
-  Future<bool> checkSession() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      _isLoggedIn = isLoggedIn;
-      _robotId = prefs.getString('robotId');
-      _userName = prefs.getString('userName');
-      notifyListeners();
-      print('🔵 Session check: isLoggedIn=$isLoggedIn');
-      return isLoggedIn;
-    } catch (e) {
-      print('🔴 Error checking session: $e');
-      return false;
-    }
-=======
   Future<void> login({required String username, required String password}) async {
     final result = await ApiService().login(username: username, password: password);
     await _saveSession(result);
@@ -160,7 +98,6 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> checkSession() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isLoggedIn') ?? false;
->>>>>>> 04a289a6ec324868af7862c6edf577ce122cb349
   }
 
   Future<void> refreshSession() async {

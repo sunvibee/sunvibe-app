@@ -49,7 +49,7 @@ class _SupportScreenState extends State<SupportScreen> {
         _showFeedback("Unable to make call", AppColors.red);
       }
     } catch (e) {
-      print('Call error: $e');
+      debugPrint('Call error: $e');
       _showFeedback("Error making call", AppColors.red);
     }
   }
@@ -79,7 +79,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   Container(
                     padding: EdgeInsets.all(10 * scale),
                     decoration: BoxDecoration(
-                      color: AppColors.orange.withOpacity(0.1),
+                      color: AppColors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -152,7 +152,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           width: 26 * scale,
                           height: 26 * scale,
                           decoration: BoxDecoration(
-                            color: AppColors.orange.withOpacity(0.1),
+                            color: AppColors.orange.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(13),
                           ),
                           child: Center(
@@ -402,6 +402,7 @@ class _SupportScreenState extends State<SupportScreen> {
     );
 
     if (confirm == true) {
+      if (!mounted) return;
       try {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.logout();
@@ -420,7 +421,7 @@ class _SupportScreenState extends State<SupportScreen> {
       } catch (e) {
         setState(() => _isLoggingOut = false);
         _showFeedback("Error during logout", AppColors.red);
-        print('Logout error: $e');
+        debugPrint('Logout error: $e');
       }
     } else {
       setState(() => _isLoggingOut = false);
@@ -543,7 +544,7 @@ class _SupportScreenState extends State<SupportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withOpacity(.25),
+            color: AppColors.orange.withValues(alpha: .25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -557,7 +558,7 @@ class _SupportScreenState extends State<SupportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "👋 We're here to help!",
+                  "Ã°Å¸â€˜â€¹ We're here to help!",
                   style: TextStyle(
                     fontSize: 18 * scale,
                     fontWeight: FontWeight.bold,
@@ -569,7 +570,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   "We're here to help you with your robot anytime.",
                   style: TextStyle(
                     fontSize: 15 * scale,
-                    color: Colors.white.withOpacity(.9),
+                    color: Colors.white.withValues(alpha: .9),
                     height: 1.5,
                   ),
                 ),
@@ -581,7 +582,7 @@ class _SupportScreenState extends State<SupportScreen> {
             width: 60 * scale,
             height: 60 * scale,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.15),
+              color: Colors.white.withValues(alpha: .15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -657,7 +658,7 @@ class _SupportScreenState extends State<SupportScreen> {
         decoration: BoxDecoration(
           color: option["bgColor"],
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: option["color"].withOpacity(.2), width: 1.5),
+          border: Border.all(color: option["color"].withValues(alpha: .2), width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -669,7 +670,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(.1),
+                    color: Colors.grey.withValues(alpha: .1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -842,7 +843,7 @@ class _SupportScreenState extends State<SupportScreen> {
       child: OutlinedButton(
         onPressed: _isLoggingOut ? null : _handleLogout,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.red.withOpacity(.3), width: 1.5),
+          side: BorderSide(color: Colors.red.withValues(alpha: .3), width: 1.5),
           padding: EdgeInsets.symmetric(vertical: 16 * scale),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

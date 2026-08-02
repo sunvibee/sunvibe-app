@@ -34,7 +34,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final hour = date.hour > 12 ? date.hour - 12 : date.hour;
     final minute = date.minute.toString().padLeft(2, '0');
     final amPm = date.hour >= 12 ? 'PM' : 'AM';
-    return '$month $day, $year • $hour:$minute $amPm';
+    return '$month $day, $year â€¢ $hour:$minute $amPm';
   }
 
   String _getMonthName(int month) {
@@ -71,6 +71,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 selectedIndices.clear();
                 isSelectionMode = false;
               });
+              if (!context.mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -161,6 +162,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   void _markAllAsRead() async {
     await NotificationService().markAllAsRead();
+    if (!mounted) return;
     setState(() {
       for (var notification in notifications) {
         notification.isRead = true;
@@ -386,7 +388,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         padding: EdgeInsets.all(14 * scale),
         decoration: BoxDecoration(
           color: isSelected 
-              ? AppColors.blue.withOpacity(0.1) 
+              ? AppColors.blue.withValues(alpha: 0.1) 
               : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
@@ -398,7 +400,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           boxShadow: [
             if (!isRead)
               BoxShadow(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -430,7 +432,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               width: 40 * scale,
               height: 40 * scale,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -535,8 +537,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  AppColors.orange.withOpacity(.14),
-                  AppColors.orange.withOpacity(.02),
+                  AppColors.orange.withValues(alpha: .14),
+                  AppColors.orange.withValues(alpha: .02),
                 ],
               ),
             ),
@@ -544,22 +546,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Positioned(
             top: size * 0.14,
             left: size * 0.12,
-            child: Icon(Icons.add, size: 12 * scale, color: AppColors.orange.withOpacity(.35)),
+            child: Icon(Icons.add, size: 12 * scale, color: AppColors.orange.withValues(alpha: .35)),
           ),
           Positioned(
             top: size * 0.18,
             right: size * 0.14,
-            child: Icon(Icons.add, size: 10 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(Icons.add, size: 10 * scale, color: AppColors.orange.withValues(alpha: .3)),
           ),
           Positioned(
             bottom: size * 0.18,
             left: size * 0.16,
-            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withValues(alpha: .3)),
           ),
           Positioned(
             bottom: size * 0.20,
             right: size * 0.12,
-            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withOpacity(.3)),
+            child: Icon(Icons.circle, size: 5 * scale, color: AppColors.orange.withValues(alpha: .3)),
           ),
           Icon(
             Icons.notifications_none_rounded,

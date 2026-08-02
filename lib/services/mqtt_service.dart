@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
 
@@ -35,13 +36,13 @@ class MQTTService {
     _client!.logging(on: false);
 
     _client!.onConnected = () {
-      print("MQTT Connected");
+      debugPrint("MQTT Connected");
       _client!.subscribe("solarcleaner/status", MqttQos.atLeastOnce);
       _client!.subscribe("solarcleaner/response", MqttQos.atLeastOnce);
     };
 
     _client!.onDisconnected = () {
-      print("MQTT Disconnected");
+      debugPrint("MQTT Disconnected");
     };
 
     _client!.connectionMessage = MqttConnectMessage()
@@ -57,11 +58,11 @@ class MQTTService {
         final msg = MqttPublishPayload.bytesToStringAsString(
           (rec.payload as MqttPublishMessage).payload.message,
         );
-        print("MQTT [$topic]: $msg");
+        debugPrint("MQTT [$topic]: $msg");
         _messageController.add(MqttMessage(topic, msg));
       });
     } catch (e) {
-      print("MQTT connect error: $e");
+      debugPrint("MQTT connect error: $e");
       _client?.disconnect();
     }
   }

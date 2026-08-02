@@ -1,7 +1,6 @@
 // lib/services/notification_service.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -49,7 +48,7 @@ class NotificationService {
   }
 
   void onDidReceiveNotificationResponse(NotificationResponse response) {
-    print('Notification tapped: ${response.payload}');
+    debugPrint('Notification tapped: ${response.payload}');
   }
 
   Future<void> _saveNotifications() async {
@@ -58,7 +57,7 @@ class NotificationService {
       final List<String> notificationJsonList = _notifications.map((n) => jsonEncode(n.toJson())).toList();
       await prefs.setStringList('notifications', notificationJsonList);
     } catch (e) {
-      print('Error saving notifications: $e');
+      debugPrint('Error saving notifications: $e');
     }
   }
 
@@ -75,7 +74,7 @@ class NotificationService {
         _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       }
     } catch (e) {
-      print('Error loading notifications: $e');
+      debugPrint('Error loading notifications: $e');
       _notifications = [];
     }
   }

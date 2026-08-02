@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'robots_screen.dart';
-import 'reports_screen.dart';
-import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
@@ -98,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MQTTService.instance.publish("ON");
     setState(() => robotState = RobotState.online);
     _showNotification(
-      '✅ Robot Started',
+      'âœ… Robot Started',
       'Robot $_masterRobotId has started cleaning',
       NotificationType.success,
     );
@@ -108,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
     MQTTService.instance.publish("OFF");
     setState(() => robotState = RobotState.stopped);
     _showNotification(
-      '⏹️ Robot Stopped',
+      'â¹ï¸ Robot Stopped',
       'Robot $_masterRobotId has stopped cleaning',
       NotificationType.warning,
     );
@@ -118,7 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
   //   MQTTService.instance.publish("ON");
   //   setState(() => robotState = RobotState.resumed);
   //   _showNotification(
-  //     '🔄 Robot Resumed',
+  //     'ðŸ”„ Robot Resumed',
   //     'Robot $_masterRobotId has resumed cleaning',
   //     NotificationType.info,
   //   );
@@ -128,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
   //   MQTTService.instance.publish("OFF");
   //   setState(() => robotState = RobotState.emergencyStopped);
   //   _showNotification(
-  //     '⚠️ Emergency Stop',
+  //     'âš ï¸ Emergency Stop',
   //     'Emergency stop activated on Robot $_masterRobotId',
   //     NotificationType.error,
   //   );
@@ -254,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withOpacity(.35),
+            color: AppColors.orange.withValues(alpha: .35),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -285,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   vertical: 6 * scale,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -408,11 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  icon,
-                  size: 14 * scale,
-                  color: Colors.black87,
-                ),
+                child: Icon(icon, size: 14 * scale, color: Colors.black87),
               ),
               SizedBox(width: 8 * scale),
               Expanded(
@@ -534,16 +527,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   CircleAvatar(
                     radius: 18 * scale,
-                    backgroundColor: Colors.white.withOpacity(0.3),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 20 * scale,
-                    ),
+                    backgroundColor: Colors.white.withValues(alpha: 0.3),
+                    child: Icon(icon, color: Colors.white, size: 20 * scale),
                   ),
                   Icon(
                     Icons.arrow_forward_ios,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     size: 14 * scale,
                   ),
                 ],
@@ -565,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.85),
+                  color: Colors.white.withValues(alpha: 0.85),
                   fontSize: 12.5 * scale,
                 ),
               ),
