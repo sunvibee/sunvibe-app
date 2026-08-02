@@ -1,20 +1,24 @@
-// lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
-  String? _robotId;
-  String? _userName;
   bool _isLoading = true;
+  String? _token;
+  UserModel? _user;
 
   bool get isLoggedIn => _isLoggedIn;
-  String? get robotId => _robotId;
-  String? get userName => _userName;
   bool get isLoading => _isLoading;
+  String? get token => _token;
+  UserModel? get user => _user;
+  String? get userName => _user?.username;
+  int? get userId => _user?.id;
+  // Keep robotId for backward compatibility
+  String? get robotId => null;
 
   AuthProvider() {
-    print('🔵 AuthProvider created - Loading session...');
     _loadSession();
   }
 
@@ -23,15 +27,19 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     try {
       final prefs = await SharedPreferences.getInstance();
-      print('🔵 SharedPreferences instance obtained');
-      
-      _isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      _robotId = prefs.getString('robotId');
-      _userName = prefs.getString('userName');
-      
-      print('🔵 Session loaded: isLoggedIn=$_isLoggedIn, robotId=$_robotId, userName=$_userName');
+      _token = prefs.getString('authToken');
+      final storedUserId = prefs.getInt('userId');
+      final storedUsername = prefs.getString('userName');
+
+      if (_token != null && storedUserId != null && storedUsername != null) {
+        _user = UserModel(
+          id: storedUserId,
+          username: storedUsername,
+          createdAt: DateTime.now(),
+        );
+        _isLoggedIn = true;
+      }
     } catch (e) {
-      print('🔴 Error loading session: $e');
       _isLoggedIn = false;
     } finally {
       _isLoading = false;
@@ -39,77 +47,60 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Login method
-  Future<void> login({
-    required String robotId,
-    required String userName,
+  Future<void> login({required String username, required String password}) async {
+    final result = await ApiService().login(username: username, password: password);
+    await _saveSession(result);
+  }
+
+  Future<void> register({
+    required String username,
+    required String password,
+    String? wifiSsid,
+    String? wifiPassword,
   }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      print('🟢 Saving session...');
-      
-      // Save session data
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('robotId', robotId);
-      await prefs.setString('userName', userName);
-      
-      // Verify save was successful
-      final saved = await prefs.getBool('isLoggedIn');
-      print('🟢 Verify saved: isLoggedIn=$saved');
-      
-      _isLoggedIn = true;
-      _robotId = robotId;
-      _userName = userName;
-      print('🟢 Login successful: isLoggedIn=$_isLoggedIn');
-      notifyListeners();
-    } catch (e) {
-      print('🔴 Error during login: $e');
-      throw e;
-    }
+    final result = await ApiService().register(
+      username: username,
+      password: password,
+      wifiSsid: wifiSsid,
+      wifiPassword: wifiPassword,
+    );
+    await _saveSession(result);
   }
 
-  // Logout method
+  Future<void> _saveSession(Map<String, dynamic> result) async {
+    final token = result['token'] as String;
+    final user = UserModel.fromJson(result['user'] as Map<String, dynamic>);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('authToken', token);
+    await prefs.setInt('userId', user.id);
+    await prefs.setString('userName', user.username);
+    await prefs.setBool('isLoggedIn', true);
+
+    _token = token;
+    _user = user;
+    _isLoggedIn = true;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      print('🔴 Logging out...');
-      
-      // Clear ALL session data
-      await prefs.remove('isLoggedIn');
-      await prefs.remove('robotId');
-      await prefs.remove('userName');
-      
-      // Verify removal
-      final removed = await prefs.getBool('isLoggedIn');
-      print('🔴 Verify removed: isLoggedIn=$removed');
-      
-      _isLoggedIn = false;
-      _robotId = null;
-      _userName = null;
-      print('🔴 Logout successful');
-      notifyListeners();
-    } catch (e) {
-      print('🔴 Error during logout: $e');
-      throw e;
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('authToken');
+    await prefs.remove('userId');
+    await prefs.remove('userName');
+    await prefs.remove('isLoggedIn');
+
+    _token = null;
+    _user = null;
+    _isLoggedIn = false;
+    notifyListeners();
   }
 
-  // Check if session exists
   Future<bool> checkSession() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      print('🔵 Session check: isLoggedIn=$isLoggedIn');
-      return isLoggedIn;
-    } catch (e) {
-      print('🔴 Error checking session: $e');
-      return false;
-    }
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isLoggedIn') ?? false;
   }
 
-  // Force refresh session
   Future<void> refreshSession() async {
     await _loadSession();
   }

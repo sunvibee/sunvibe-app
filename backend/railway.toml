@@ -1,0 +1,13 @@
+# Railway service configuration — place this file in the backend/ folder root.
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10

@@ -1,5 +1,12 @@
+import 'dart:async';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:mqtt_client/mqtt_server_client.dart';
+
+class MqttMessage {
+  final String topic;
+  final String payload;
+  const MqttMessage(this.topic, this.payload);
+}
 
 class MQTTService {
   static final MQTTService instance = MQTTService._internal();
@@ -8,72 +15,80 @@ class MQTTService {
 
   MQTTService._internal();
 
-  late MqttServerClient client;
+  MqttServerClient? _client;
+
+  final _messageController = StreamController<MqttMessage>.broadcast();
+  Stream<MqttMessage> get onMessage => _messageController.stream;
+
+  bool get isConnected =>
+      _client?.connectionStatus?.state == MqttConnectionState.connected;
 
   Future<void> connect() async {
-    client = MqttServerClient(
+    _client = MqttServerClient(
       "i16d357e.ala.asia-southeast1.emqxsl.com",
       "FlutterApp",
     );
 
-    client.port = 8883;
+    _client!.port = 8883;
+    _client!.secure = true;
+    _client!.keepAlivePeriod = 30;
+    _client!.logging(on: false);
 
-    client.secure = true;
-
-    client.keepAlivePeriod = 30;
-
-    client.logging(on: true);
-
-    client.onConnected = () {
+    _client!.onConnected = () {
       print("MQTT Connected");
-
-      client.subscribe(
-        "solarcleaner/status",
-        MqttQos.atLeastOnce,
-      );
-
-      client.subscribe(
-        "solarcleaner/response",
-        MqttQos.atLeastOnce,
-      );
+      _client!.subscribe("solarcleaner/status", MqttQos.atLeastOnce);
+      _client!.subscribe("solarcleaner/response", MqttQos.atLeastOnce);
     };
 
-    client.onDisconnected = () {
+    _client!.onDisconnected = () {
       print("MQTT Disconnected");
     };
 
-    client.connectionMessage = MqttConnectMessage()
+    _client!.connectionMessage = MqttConnectMessage()
         .withClientIdentifier("FlutterApp")
-        .authenticateAs(
-          "SunVibee",
-          "SunVibee@123",
-        )
+        .authenticateAs("SunVibee", "SunVibee@123")
         .startClean();
 
     try {
-      await client.connect();
-
-      client.updates!.listen((event) {
-        final rec = event.first.payload as MqttPublishMessage;
-
+      await _client!.connect();
+      _client!.updates!.listen((event) {
+        final rec = event.first;
+        final topic = rec.topic;
         final msg = MqttPublishPayload.bytesToStringAsString(
-          rec.payload.message,
+          (rec.payload as MqttPublishMessage).payload.message,
         );
-
-        print("Received : $msg");
+        print("MQTT [$topic]: $msg");
+        _messageController.add(MqttMessage(topic, msg));
       });
     } catch (e) {
-      print(e);
-      client.disconnect();
+      print("MQTT connect error: $e");
+      _client?.disconnect();
     }
   }
 
+  /// Subscribe to a robot's status/response topics using its client ID.
+  void subscribeToRobot(String robotId) {
+    if (!isConnected) return;
+    _client!.subscribe("solarcleaner/$robotId/status", MqttQos.atLeastOnce);
+    _client!.subscribe("solarcleaner/$robotId/response", MqttQos.atLeastOnce);
+  }
+
+  /// Publish a command to a specific robot's command topic.
+  void publishToRobot(String robotId, String cmd) {
+    if (!isConnected) return;
+    final builder = MqttClientPayloadBuilder()..addString(cmd);
+    _client!.publishMessage(
+      "solarcleaner/$robotId/command",
+      MqttQos.atLeastOnce,
+      builder.payload!,
+    );
+  }
+
+  /// Publish to the legacy flat topic (used by HomeScreen).
   void publish(String cmd) {
-    final builder = MqttClientPayloadBuilder();
-
-    builder.addString(cmd);
-
-    client.publishMessage(
+    if (!isConnected) return;
+    final builder = MqttClientPayloadBuilder()..addString(cmd);
+    _client!.publishMessage(
       "solarcleaner/command",
       MqttQos.atLeastOnce,
       builder.payload!,
@@ -81,6 +96,6 @@ class MQTTService {
   }
 
   void disconnect() {
-    client.disconnect();
+    _client?.disconnect();
   }
 }
