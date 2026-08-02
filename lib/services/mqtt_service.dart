@@ -107,12 +107,19 @@ class MQTTService {
     );
   }
 
+  /// Publish to all currently connected robot command topics.
+  void publishToAll(String cmd) {
+    for (final robotId in Set.of(_subscribedRobots)) {
+      publishToRobot(robotId, cmd);
+    }
+  }
+
   /// Publish to the legacy flat topic (used by HomeScreen).
   void publish(String cmd) {
     if (!isConnected) return;
     final builder = MqttClientPayloadBuilder()..addString(cmd);
     _client!.publishMessage(
-      "solarcleaner/command",
+      'solarcleaner/command',
       MqttQos.atLeastOnce,
       builder.payload!,
     );
