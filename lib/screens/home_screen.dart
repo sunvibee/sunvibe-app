@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'robots_screen.dart';
-import 'reports_screen.dart';
-import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
@@ -67,85 +63,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onStart() {
-    MQTTService.instance.publish("ON");
-
-    setState(() {
-      robotState = RobotState.online;
-    });
-
-    _showFeedback("Robot Started", AppColors.orange);
+    MQTTService.instance.publishToAll('ON');
+    setState(() { robotState = RobotState.online; });
+    _showFeedback('Robot Started', AppColors.orange);
   }
 
   void _onStop() {
-    MQTTService.instance.publish("OFF");
-
-    setState(() {
-      robotState = RobotState.stopped;
-    });
-
-    _showFeedback("Robot Stopped", AppColors.navy);
-  }
-
-  void _onResume() {
-    MQTTService.instance.publish("ON");
-
-    setState(() {
-      robotState = RobotState.resumed;
-    });
-
-    _showFeedback("Robot Resumed", AppColors.blue);
-  }
-
-  void _onEmergencyStop() {
-    MQTTService.instance.publish("OFF");
-
-    setState(() {
-      robotState = RobotState.emergencyStopped;
-    });
-
-    _showFeedback("Emergency Stop", AppColors.red);
-  }
-
-
-  Future<void> _showExitDialog() async {
-    final shouldExit = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.exit_to_app, color: Colors.red),
-              SizedBox(width: 10),
-              Text("Exit App"),
-            ],
-          ),
-          content: const Text("Do you really want to close the app?"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context, false);
-              },
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.pop(context, true);
-              },
-              child: const Text("Exit", style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldExit == true) {
-      SystemNavigator.pop();
-    }
+    MQTTService.instance.publishToAll('OFF');
+    setState(() { robotState = RobotState.stopped; });
+    _showFeedback('Robot Stopped', AppColors.navy);
   }
 
   @override
@@ -325,20 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _statusPill(scale),
-                  SizedBox(height: 12 * scale),
-                  _idCard(
-                    scale: scale,
-                    icon: Icons.smart_toy_outlined,
-                    label: "Master Robot ID",
-                    value: "SV-001",
-                  ),
-                  SizedBox(height: 12 * scale),
-                  _idCard(
-                    scale: scale,
-                    icon: Icons.router_outlined,
-                    label: "Gateway ID",
-                    value: "GW-25-1847",
-                  ),
                 ],
               );
 
@@ -434,65 +346,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _idCard({
-    required double scale,
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 14 * scale,
-        vertical: 12 * scale,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(8 * scale),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 18 * scale, color: Colors.black87),
-          ),
-          SizedBox(width: 12 * scale),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 12.5 * scale,
-                  ),
-                ),
-                SizedBox(height: 2 * scale),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   //---------------- Controls Grid ----------------
   Widget _buildControlsGrid(double scale) {
     return Column(
@@ -519,33 +372,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 subtitle: "Stop Operation",
                 background: AppColors.navy,
                 onTap: _onStop,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 14 * scale),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.autorenew_rounded,
-                title: "Resume",
-                subtitle: "Resume Cleaning",
-                background: AppColors.blue,
-                onTap: _onResume,
-              ),
-            ),
-            SizedBox(width: 14 * scale),
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.warning_rounded,
-                title: "Emergency Stop",
-                subtitle: "Immediate Stop",
-                background: AppColors.red,
-                onTap: _onEmergencyStop,
               ),
             ),
           ],

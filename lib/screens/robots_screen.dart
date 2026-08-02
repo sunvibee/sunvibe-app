@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
-import '../services/notification_service.dart';
-import '../models/notification_model.dart';
 import '../providers/auth_provider.dart';
+import 'dart:async';
+import '../services/mqtt_service.dart';
+import '../services/api_service.dart';
 
 class RobotsScreen extends StatefulWidget {
   const RobotsScreen({super.key});
@@ -24,6 +25,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   bool _isConnecting = false;
   bool _isLoading = true;
   String? _masterRobotId;
+  StreamSubscription<MqttMessage>? _mqttSub;
 
   int get totalRobots => robots.length;
   int get onlineRobots => robots.where((r) => r['online'] == true).length;
@@ -40,10 +42,12 @@ class _RobotsScreenState extends State<RobotsScreen> {
     super.initState();
     _loadRobots();
     _getMasterRobotId();
+    _mqttSub = MQTTService.instance.onMessage.listen(_handleMqttMessage);
   }
 
   @override
   void dispose() {
+    _mqttSub?.cancel();
     _searchController.dispose();
     _robotIdController.dispose();
     _robotIdFocusNode.dispose();
@@ -55,40 +59,69 @@ class _RobotsScreenState extends State<RobotsScreen> {
     _masterRobotId = authProvider.robotId;
   }
 
-  // Save robots to SharedPreferences
+  // Cache key scoped to the current user — prevents cross-account data leaks.
+  String _cacheKey() {
+    final userId = Provider.of<AuthProvider>(context, listen: false).userId;
+    return 'robots_$userId';
+  }
+
   Future<void> _saveRobots() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final List<String> robotJsonList = robots.map((robot) => jsonEncode(robot)).toList();
-      await prefs.setStringList('robots', robotJsonList);
+      await prefs.setStringList(
+        _cacheKey(),
+        robots.map((r) => jsonEncode(r)).toList(),
+      );
     } catch (e) {
       print('Error saving robots: $e');
     }
   }
 
-  // Load robots from SharedPreferences
   Future<void> _loadRobots() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() { _isLoading = true; });
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final cacheKey = 'robots_${auth.userId}';
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String>? robotJsonList = prefs.getStringList('robots');
-      
-      if (robotJsonList != null) {
-        setState(() {
-          robots = robotJsonList
-              .map((jsonString) => jsonDecode(jsonString) as Map<String, dynamic>)
-              .toList();
-        });
+      // API is the authoritative source — returns only this user's robots.
+      final rows = await ApiService(token: auth.token).getRobots();
+      final loaded = rows.map((r) => <String, dynamic>{
+        'id':         r['robot_uid'] as String,
+        'name':       r['robot_uid'] as String,
+        'online':     false,
+        'battery':    85,
+        'cleaning':   false,
+        'alerts':     false,
+        'isMaster':   false,
+        'lastActive': DateTime.now().toIso8601String(),
+      }).toList();
+
+      setState(() { robots = loaded; });
+      for (final r in loaded) {
+        MQTTService.instance.subscribeToRobot(r['id'] as String);
       }
-    } catch (e) {
-      print('Error loading robots: $e');
+      await _saveRobots();
+
+      // Remove old non-scoped key left over from previous builds.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('robots');
+    } catch (_) {
+      // API unreachable — fall back to the user-scoped local cache.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getStringList(cacheKey);
+        if (cached != null) {
+          final loaded = cached
+              .map((j) => jsonDecode(j) as Map<String, dynamic>)
+              .toList();
+          setState(() { robots = loaded; });
+          for (final r in loaded) {
+            MQTTService.instance.subscribeToRobot(r['id'] as String);
+          }
+        }
+      } catch (_) {}
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() { _isLoading = false; });
     }
   }
 
@@ -103,31 +136,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-  }
-
-  void _showNotification(String title, String message, NotificationType type) {
-    final color = _getNotificationColor(type);
-    _showFeedback(message, color);
-    
-    NotificationService().showNotification(
-      title: title,
-      body: message,
-      type: type,
-      payload: 'robot_connection',
-    );
-  }
-
-  Color _getNotificationColor(NotificationType type) {
-    switch (type) {
-      case NotificationType.info:
-        return AppColors.blue;
-      case NotificationType.warning:
-        return AppColors.orange;
-      case NotificationType.error:
-        return AppColors.red;
-      case NotificationType.success:
-        return AppColors.green;
-    }
   }
 
   void _showAddRobotDialog() {
@@ -296,49 +304,46 @@ class _RobotsScreenState extends State<RobotsScreen> {
       return;
     }
 
-    setState(() {
-      _isConnecting = true;
-    });
+    setState(() { _isConnecting = true; });
 
-    await Future.delayed(Duration(milliseconds: 800));
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      final api = ApiService(token: token);
 
-    final isMaster = robotId == _masterRobotId;
+      // Validate ID exists in the pre-registered robot registry
+      final info = await api.validateRobot(robotId);
+      final canonicalId = info['robot_uid'] as String? ?? robotId;
 
-    final newRobot = {
-      'id': robotId,
-      'name': 'SV-$robotId',
-      'online': true,
-      'battery': 85,
-      'cleaning': false,
-      'alerts': false,
-      'isMaster': isMaster,
-      'lastActive': DateTime.now().toIso8601String(),
-    };
+      await api.registerRobot(robotUid: canonicalId, robotName: canonicalId);
+      MQTTService.instance.subscribeToRobot(canonicalId);
 
-    setState(() {
-      robots.add(newRobot);
-      _isConnecting = false;
-    });
+      final newRobot = {
+        'id': canonicalId,
+        'name': canonicalId,
+        'online': true,
+        'battery': 85,
+        'cleaning': false,
+        'alerts': false,
+        'isMaster': false,
+        'lastActive': DateTime.now().toIso8601String(),
+      };
 
-    await _saveRobots();
+      setState(() {
+        robots.add(newRobot);
+        _isConnecting = false;
+      });
 
-    _showNotification(
-      '✅ Robot Connected',
-      'Robot $robotId has been successfully connected!',
-      NotificationType.success,
-    );
-
-    _robotIdFocusNode.unfocus();
-    Navigator.pop(context);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("✅ Robot $robotId connected successfully!"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
+      await _saveRobots();
+      _robotIdFocusNode.unfocus();
+      if (mounted) Navigator.pop(context);
+      _showFeedback('Robot $canonicalId connected!', AppColors.green);
+    } on ApiException catch (e) {
+      setState(() { _isConnecting = false; });
+      _showFeedback(e.message, AppColors.red);
+    } catch (_) {
+      setState(() { _isConnecting = false; });
+      _showFeedback('Connection failed. Check your Robot ID.', AppColors.red);
+    }
   }
 
   void _removeRobot(int index) {
@@ -386,17 +391,16 @@ class _RobotsScreenState extends State<RobotsScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              setState(() {
-                robots.removeAt(index);
-              });
+              final robotId = robots[index]['id'] as String;
+              MQTTService.instance.unsubscribeFromRobot(robotId);
+              try {
+                final token = Provider.of<AuthProvider>(context, listen: false).token;
+                await ApiService(token: token).removeRobot(robotId);
+              } catch (_) {}
+              setState(() { robots.removeAt(index); });
               await _saveRobots();
               Navigator.pop(context);
-              
-              _showNotification(
-                '🗑️ Robot Removed',
-                '$robotName has been removed',
-                NotificationType.warning,
-              );
+              _showFeedback('$robotName removed', AppColors.red);
             },
             child: Text("Remove"),
           ),
@@ -405,24 +409,21 @@ class _RobotsScreenState extends State<RobotsScreen> {
     );
   }
 
-  void _toggleRobotStatus(int index) {
+  void _handleMqttMessage(MqttMessage msg) {
+    final parts = msg.topic.split('/');
+    if (parts.length < 3) return;
+    final robotId = parts[1];
+    final payload = msg.payload.toUpperCase();
+    final idx = robots.indexWhere((r) => r['id'] == robotId);
+    if (idx == -1) return;
     setState(() {
-      robots[index]['online'] = !robots[index]['online'];
-      if (robots[index]['online']) {
-        _showNotification(
-          '🟢 Robot Online',
-          '${robots[index]['name']} is now online',
-          NotificationType.success,
-        );
-      } else {
-        _showNotification(
-          '🔴 Robot Offline',
-          '${robots[index]['name']} is now offline',
-          NotificationType.warning,
-        );
+      if (payload.contains('ON') || payload.contains('RUN') || payload.contains('START')) {
+        robots[idx]['online'] = true;
+        robots[idx]['cleaning'] = true;
+      } else if (payload.contains('OFF') || payload.contains('STOP')) {
+        robots[idx]['cleaning'] = false;
       }
     });
-    _saveRobots();
   }
 
   @override
@@ -896,43 +897,22 @@ class _RobotsScreenState extends State<RobotsScreen> {
               ],
             ),
           ),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => _toggleRobotStatus(index),
-                child: Container(
-                  padding: EdgeInsets.all(8 * scale),
-                  decoration: BoxDecoration(
-                    color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    isOnline ? Icons.wifi : Icons.wifi_off,
-                    color: isOnline ? AppColors.green : Colors.red,
-                    size: 18 * scale,
-                  ),
+          if (!isMaster)
+            GestureDetector(
+              onTap: () => _removeRobot(index),
+              child: Container(
+                padding: EdgeInsets.all(8 * scale),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 18 * scale,
                 ),
               ),
-              if (!isMaster) ...[
-                SizedBox(width: 8 * scale),
-                GestureDetector(
-                  onTap: () => _removeRobot(index),
-                  child: Container(
-                    padding: EdgeInsets.all(8 * scale),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                      size: 18 * scale,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
         ],
       ),
     );
