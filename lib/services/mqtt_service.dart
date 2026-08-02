@@ -17,6 +17,9 @@ class MQTTService {
 
   MqttServerClient? _client;
 
+  // Tracks per-robot subscriptions so they survive MQTT reconnects.
+  final Set<String> _subscribedRobots = {};
+
   final _messageController = StreamController<MqttMessage>.broadcast();
   Stream<MqttMessage> get onMessage => _messageController.stream;
 
@@ -24,29 +27,40 @@ class MQTTService {
       _client?.connectionStatus?.state == MqttConnectionState.connected;
 
   Future<void> connect() async {
+    if (isConnected) return; // already connected, skip
+    final clientId = 'FlutterApp_${DateTime.now().millisecondsSinceEpoch}';
     _client = MqttServerClient(
-      "i16d357e.ala.asia-southeast1.emqxsl.com",
-      "FlutterApp",
+      'i16d357e.ala.asia-southeast1.emqxsl.com',
+      clientId,
     );
 
     _client!.port = 8883;
     _client!.secure = true;
     _client!.keepAlivePeriod = 30;
     _client!.logging(on: false);
+    // Allow broker's TLS certificate even if device CA store doesn't include it.
+    _client!.onBadCertificate = (dynamic _) => true;
 
     _client!.onConnected = () {
-      print("MQTT Connected");
-      _client!.subscribe("solarcleaner/status", MqttQos.atLeastOnce);
-      _client!.subscribe("solarcleaner/response", MqttQos.atLeastOnce);
+      print('MQTT Connected');
+      _client!.subscribe('solarcleaner/status', MqttQos.atLeastOnce);
+      _client!.subscribe('solarcleaner/response', MqttQos.atLeastOnce);
+      // Re-subscribe to any robots that were added before/during reconnect.
+      for (final robotId in _subscribedRobots) {
+        _client!.subscribe('solarcleaner/$robotId/status', MqttQos.atLeastOnce);
+        _client!.subscribe('solarcleaner/$robotId/response', MqttQos.atLeastOnce);
+      }
     };
 
     _client!.onDisconnected = () {
-      print("MQTT Disconnected");
+      print('MQTT Disconnected');
     };
 
     _client!.connectionMessage = MqttConnectMessage()
-        .withClientIdentifier("FlutterApp")
-        .authenticateAs("SunVibee", "SunVibee@123")
+        .withClientIdentifier(clientId)
+        .withProtocolName('MQTT')
+        .withProtocolVersion(4)
+        .authenticateAs('SunVibee02', 'SunVibee@123')
         .startClean();
 
     try {
@@ -68,9 +82,18 @@ class MQTTService {
 
   /// Subscribe to a robot's status/response topics using its client ID.
   void subscribeToRobot(String robotId) {
+    _subscribedRobots.add(robotId); // persists across reconnects
     if (!isConnected) return;
-    _client!.subscribe("solarcleaner/$robotId/status", MqttQos.atLeastOnce);
-    _client!.subscribe("solarcleaner/$robotId/response", MqttQos.atLeastOnce);
+    _client!.subscribe('solarcleaner/$robotId/status', MqttQos.atLeastOnce);
+    _client!.subscribe('solarcleaner/$robotId/response', MqttQos.atLeastOnce);
+  }
+
+  /// Unsubscribe from a robot's topics when disconnecting it.
+  void unsubscribeFromRobot(String robotId) {
+    _subscribedRobots.remove(robotId);
+    if (!isConnected) return;
+    _client!.unsubscribe('solarcleaner/$robotId/status');
+    _client!.unsubscribe('solarcleaner/$robotId/response');
   }
 
   /// Publish a command to a specific robot's command topic.

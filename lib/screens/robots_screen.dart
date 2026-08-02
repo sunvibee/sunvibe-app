@@ -551,7 +551,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: controller,
-                textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
                   labelText: "Client ID",
                   hintText: "e.g. SV-001",
@@ -568,9 +567,10 @@ class _RobotsScreenState extends State<RobotsScreen> {
                   ),
                 ),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return "Client ID is required";
-                  if (_connectedRobots.any((r) => r.clientId == v.trim())) {
-                    return "This robot is already connected";
+                  if (v == null || v.trim().isEmpty) return 'Client ID is required';
+                  if (_connectedRobots.any((r) =>
+                      r.clientId.toLowerCase() == v.trim().toLowerCase())) {
+                    return 'This robot is already connected';
                   }
                   return null;
                 },
@@ -651,20 +651,22 @@ class _RobotsScreenState extends State<RobotsScreen> {
 
       // 1. Validate the ID exists in the pre-registered registry
       final info = await api.validateRobot(clientId);
-      final label = info['label'] as String? ?? clientId;
+      // Use DB-stored uid for exact topic casing (MQTT topics are case-sensitive).
+      final canonicalId = info['robot_uid'] as String? ?? clientId;
+      final label = info['label'] as String? ?? canonicalId;
 
       // 2. Associate with the user's account
-      await api.registerRobot(robotUid: clientId, robotName: label);
+      await api.registerRobot(robotUid: canonicalId, robotName: label);
 
       // 3. Subscribe to MQTT topics for this robot
-      MQTTService.instance.subscribeToRobot(clientId);
+      MQTTService.instance.subscribeToRobot(canonicalId);
 
       if (!mounted) return;
       Navigator.pop(context); // close loading
       setState(() => _connectedRobots.add(
-        _ConnectedRobot(clientId: clientId, label: label),
+        _ConnectedRobot(clientId: canonicalId, label: label),
       ));
-      _showFeedback("Robot $clientId connected!", AppColors.green);
+      _showFeedback('Robot $canonicalId connected!', AppColors.green);
     } on ApiException catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
@@ -684,10 +686,21 @@ class _RobotsScreenState extends State<RobotsScreen> {
   }
 
   void _stopRobot(String clientId) {
-    MQTTService.instance.publishToRobot(clientId, "OFF");
+    MQTTService.instance.publishToRobot(clientId, 'OFF');
     final idx = _connectedRobots.indexWhere((r) => r.clientId == clientId);
     if (idx != -1) setState(() => _connectedRobots[idx].status = _RobotStatus.stopped);
-    _showFeedback("Robot $clientId stopped", AppColors.navy);
+    _showFeedback('Robot $clientId stopped', AppColors.navy);
+  }
+
+  Future<void> _disconnectRobot(String clientId) async {
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      await ApiService(token: token).removeRobot(clientId);
+    } catch (_) {}
+    MQTTService.instance.unsubscribeFromRobot(clientId);
+    if (!mounted) return;
+    setState(() => _connectedRobots.removeWhere((r) => r.clientId == clientId));
+    _showFeedback('Robot $clientId disconnected', AppColors.red);
   }
 
   void _handleMqttMessage(MqttMessage msg) {
@@ -829,7 +842,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     elevation: 0,
                   ),
                   icon: Icon(Icons.play_arrow, size: 15 * scale),
-                  label: Text("Start", style: TextStyle(fontSize: 12 * scale)),
+                  label: Text('Start', style: TextStyle(fontSize: 12 * scale)),
                   onPressed: robot.isRunning
                       ? null
                       : () => _startRobot(robot.clientId),
@@ -850,10 +863,27 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     elevation: 0,
                   ),
                   icon: Icon(Icons.stop, size: 15 * scale),
-                  label: Text("Stop", style: TextStyle(fontSize: 12 * scale)),
+                  label: Text('Stop', style: TextStyle(fontSize: 12 * scale)),
                   onPressed: !robot.isRunning
                       ? null
                       : () => _stopRobot(robot.clientId),
+                ),
+              ),
+              SizedBox(height: 7 * scale),
+              SizedBox(
+                height: 34 * scale,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.red,
+                    side: BorderSide(color: AppColors.red, width: 1.5),
+                    padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: Icon(Icons.link_off, size: 15 * scale),
+                  label: Text('Disconnect', style: TextStyle(fontSize: 11 * scale)),
+                  onPressed: () => _disconnectRobot(robot.clientId),
                 ),
               ),
             ],

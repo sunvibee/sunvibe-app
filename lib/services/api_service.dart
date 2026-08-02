@@ -179,6 +179,19 @@ class ApiService {
     return body;
   }
 
+  Future<void> removeRobot(String robotUid) async {
+    final r = await http
+        .delete(_uri('/api/robots/$robotUid'), headers: _headers)
+        .timeout(_timeout);
+    if (r.statusCode != 200 && r.statusCode != 204) {
+      final body = _decode(r);
+      throw ApiException(
+        body['error']?.toString() ?? 'Failed to remove robot',
+        statusCode: r.statusCode,
+      );
+    }
+  }
+
   // ── Sensor data ─────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getSensorData(String robotUid) async {

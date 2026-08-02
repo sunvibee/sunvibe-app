@@ -320,6 +320,19 @@ app.post('/api/robots', authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/robots/:robotUid
+app.delete('/api/robots/:robotUid', authenticate, async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM robots WHERE user_id = $1 AND robot_uid = $2',
+      [req.user.userId, req.params.robotUid]
+    );
+    res.json({ message: 'Robot removed' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── Sensor data routes ────────────────────────────────────────────────────────
 
 // POST /api/sensor-data

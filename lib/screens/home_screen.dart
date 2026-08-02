@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    MQTTService.instance.connect();
+    // MQTT is managed by MainNavigationScreen for the full app lifetime.
   }
 
   
@@ -618,7 +618,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    MQTTService.instance.disconnect();
     super.dispose();
   }
 }

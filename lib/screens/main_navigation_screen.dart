@@ -6,6 +6,7 @@ import 'reports_screen.dart';
 import 'support_screen.dart';
 
 import '../widgets/bottom_nav_bar.dart';
+import '../services/mqtt_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -18,6 +19,18 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   int currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    MQTTService.instance.connect();
+  }
+
+  @override
+  void dispose() {
+    MQTTService.instance.disconnect();
+    super.dispose();
+  }
 
   final List<Widget> pages = const [
     HomeScreen(),
