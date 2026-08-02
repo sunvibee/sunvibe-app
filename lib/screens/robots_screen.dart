@@ -59,43 +59,69 @@ class _RobotsScreenState extends State<RobotsScreen> {
     _masterRobotId = authProvider.robotId;
   }
 
-  // Save robots to SharedPreferences
+  // Cache key scoped to the current user — prevents cross-account data leaks.
+  String _cacheKey() {
+    final userId = Provider.of<AuthProvider>(context, listen: false).userId;
+    return 'robots_$userId';
+  }
+
   Future<void> _saveRobots() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final List<String> robotJsonList = robots.map((robot) => jsonEncode(robot)).toList();
-      await prefs.setStringList('robots', robotJsonList);
+      await prefs.setStringList(
+        _cacheKey(),
+        robots.map((r) => jsonEncode(r)).toList(),
+      );
     } catch (e) {
       print('Error saving robots: $e');
     }
   }
 
-  // Load robots from SharedPreferences
   Future<void> _loadRobots() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() { _isLoading = true; });
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final cacheKey = 'robots_${auth.userId}';
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final List<String>? robotJsonList = prefs.getStringList('robots');
-      
-      if (robotJsonList != null) {
-        final loaded = robotJsonList
-            .map((jsonString) => jsonDecode(jsonString) as Map<String, dynamic>)
-            .toList();
-        setState(() { robots = loaded; });
-        // Re-subscribe MQTT for each saved robot
-        for (final r in loaded) {
-          MQTTService.instance.subscribeToRobot(r['id'] as String);
-        }
+      // API is the authoritative source — returns only this user's robots.
+      final rows = await ApiService(token: auth.token).getRobots();
+      final loaded = rows.map((r) => <String, dynamic>{
+        'id':         r['robot_uid']  as String,
+        'name':       r['robot_name'] as String? ?? r['robot_uid'] as String,
+        'online':     false,
+        'battery':    85,
+        'cleaning':   false,
+        'alerts':     false,
+        'isMaster':   false,
+        'lastActive': DateTime.now().toIso8601String(),
+      }).toList();
+
+      setState(() { robots = loaded; });
+      for (final r in loaded) {
+        MQTTService.instance.subscribeToRobot(r['id'] as String);
       }
-    } catch (e) {
-      print('Error loading robots: $e');
+      await _saveRobots();
+
+      // Remove old non-scoped key left over from previous builds.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('robots');
+    } catch (_) {
+      // API unreachable — fall back to the user-scoped local cache.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getStringList(cacheKey);
+        if (cached != null) {
+          final loaded = cached
+              .map((j) => jsonDecode(j) as Map<String, dynamic>)
+              .toList();
+          setState(() { robots = loaded; });
+          for (final r in loaded) {
+            MQTTService.instance.subscribeToRobot(r['id'] as String);
+          }
+        }
+      } catch (_) {}
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() { _isLoading = false; });
     }
   }
 
