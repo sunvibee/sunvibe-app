@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
-import '../services/notification_service.dart';
-import '../models/notification_model.dart';
 import '../providers/auth_provider.dart';
+import 'dart:async';
+import '../services/mqtt_service.dart';
+import '../services/api_service.dart';
 
 class RobotsScreen extends StatefulWidget {
   const RobotsScreen({super.key});
@@ -24,6 +25,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   bool _isConnecting = false;
   bool _isLoading = true;
   String? _masterRobotId;
+  StreamSubscription<MqttMessage>? _mqttSub;
 
   int get totalRobots => robots.length;
   int get onlineRobots => robots.where((r) => r['online'] == true).length;
@@ -40,10 +42,12 @@ class _RobotsScreenState extends State<RobotsScreen> {
     super.initState();
     _loadRobots();
     _getMasterRobotId();
+    _mqttSub = MQTTService.instance.onMessage.listen(_handleMqttMessage);
   }
 
   @override
   void dispose() {
+    _mqttSub?.cancel();
     _searchController.dispose();
     _robotIdController.dispose();
     _robotIdFocusNode.dispose();
@@ -77,11 +81,14 @@ class _RobotsScreenState extends State<RobotsScreen> {
       final List<String>? robotJsonList = prefs.getStringList('robots');
       
       if (robotJsonList != null) {
-        setState(() {
-          robots = robotJsonList
-              .map((jsonString) => jsonDecode(jsonString) as Map<String, dynamic>)
-              .toList();
-        });
+        final loaded = robotJsonList
+            .map((jsonString) => jsonDecode(jsonString) as Map<String, dynamic>)
+            .toList();
+        setState(() { robots = loaded; });
+        // Re-subscribe MQTT for each saved robot
+        for (final r in loaded) {
+          MQTTService.instance.subscribeToRobot(r['id'] as String);
+        }
       }
     } catch (e) {
       print('Error loading robots: $e');
@@ -103,31 +110,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
-  }
-
-  void _showNotification(String title, String message, NotificationType type) {
-    final color = _getNotificationColor(type);
-    _showFeedback(message, color);
-    
-    NotificationService().showNotification(
-      title: title,
-      body: message,
-      type: type,
-      payload: 'robot_connection',
-    );
-  }
-
-  Color _getNotificationColor(NotificationType type) {
-    switch (type) {
-      case NotificationType.info:
-        return AppColors.blue;
-      case NotificationType.warning:
-        return AppColors.orange;
-      case NotificationType.error:
-        return AppColors.red;
-      case NotificationType.success:
-        return AppColors.green;
-    }
   }
 
   void _showAddRobotDialog() {
@@ -296,49 +278,47 @@ class _RobotsScreenState extends State<RobotsScreen> {
       return;
     }
 
-    setState(() {
-      _isConnecting = true;
-    });
+    setState(() { _isConnecting = true; });
 
-    await Future.delayed(Duration(milliseconds: 800));
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      final api = ApiService(token: token);
 
-    final isMaster = robotId == _masterRobotId;
+      // Validate ID exists in the pre-registered robot registry
+      final info = await api.validateRobot(robotId);
+      final canonicalId = info['robot_uid'] as String? ?? robotId;
+      final label = info['label'] as String? ?? canonicalId;
 
-    final newRobot = {
-      'id': robotId,
-      'name': 'SV-$robotId',
-      'online': true,
-      'battery': 85,
-      'cleaning': false,
-      'alerts': false,
-      'isMaster': isMaster,
-      'lastActive': DateTime.now().toIso8601String(),
-    };
+      await api.registerRobot(robotUid: canonicalId, robotName: label);
+      MQTTService.instance.subscribeToRobot(canonicalId);
 
-    setState(() {
-      robots.add(newRobot);
-      _isConnecting = false;
-    });
+      final newRobot = {
+        'id': canonicalId,
+        'name': label,
+        'online': true,
+        'battery': 85,
+        'cleaning': false,
+        'alerts': false,
+        'isMaster': false,
+        'lastActive': DateTime.now().toIso8601String(),
+      };
 
-    await _saveRobots();
+      setState(() {
+        robots.add(newRobot);
+        _isConnecting = false;
+      });
 
-    _showNotification(
-      '✅ Robot Connected',
-      'Robot $robotId has been successfully connected!',
-      NotificationType.success,
-    );
-
-    _robotIdFocusNode.unfocus();
-    Navigator.pop(context);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("✅ Robot $robotId connected successfully!"),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
+      await _saveRobots();
+      _robotIdFocusNode.unfocus();
+      if (mounted) Navigator.pop(context);
+      _showFeedback('Robot $canonicalId connected!', AppColors.green);
+    } on ApiException catch (e) {
+      setState(() { _isConnecting = false; });
+      _showFeedback(e.message, AppColors.red);
+    } catch (_) {
+      setState(() { _isConnecting = false; });
+      _showFeedback('Connection failed. Check your Robot ID.', AppColors.red);
+    }
   }
 
   void _removeRobot(int index) {
@@ -386,17 +366,16 @@ class _RobotsScreenState extends State<RobotsScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              setState(() {
-                robots.removeAt(index);
-              });
+              final robotId = robots[index]['id'] as String;
+              MQTTService.instance.unsubscribeFromRobot(robotId);
+              try {
+                final token = Provider.of<AuthProvider>(context, listen: false).token;
+                await ApiService(token: token).removeRobot(robotId);
+              } catch (_) {}
+              setState(() { robots.removeAt(index); });
               await _saveRobots();
               Navigator.pop(context);
-              
-              _showNotification(
-                '🗑️ Robot Removed',
-                '$robotName has been removed',
-                NotificationType.warning,
-              );
+              _showFeedback('$robotName removed', AppColors.red);
             },
             child: Text("Remove"),
           ),
@@ -405,24 +384,40 @@ class _RobotsScreenState extends State<RobotsScreen> {
     );
   }
 
-  void _toggleRobotStatus(int index) {
+  void _startRobot(int index) {
+    final robotId = robots[index]['id'] as String;
+    MQTTService.instance.publishToRobot(robotId, 'ON');
     setState(() {
-      robots[index]['online'] = !robots[index]['online'];
-      if (robots[index]['online']) {
-        _showNotification(
-          '🟢 Robot Online',
-          '${robots[index]['name']} is now online',
-          NotificationType.success,
-        );
-      } else {
-        _showNotification(
-          '🔴 Robot Offline',
-          '${robots[index]['name']} is now offline',
-          NotificationType.warning,
-        );
-      }
+      robots[index]['online'] = true;
+      robots[index]['cleaning'] = true;
     });
     _saveRobots();
+    _showFeedback('Robot $robotId started', AppColors.orange);
+  }
+
+  void _stopRobot(int index) {
+    final robotId = robots[index]['id'] as String;
+    MQTTService.instance.publishToRobot(robotId, 'OFF');
+    setState(() { robots[index]['cleaning'] = false; });
+    _saveRobots();
+    _showFeedback('Robot $robotId stopped', AppColors.navy);
+  }
+
+  void _handleMqttMessage(MqttMessage msg) {
+    final parts = msg.topic.split('/');
+    if (parts.length < 3) return;
+    final robotId = parts[1];
+    final payload = msg.payload.toUpperCase();
+    final idx = robots.indexWhere((r) => r['id'] == robotId);
+    if (idx == -1) return;
+    setState(() {
+      if (payload.contains('ON') || payload.contains('RUN') || payload.contains('START')) {
+        robots[idx]['online'] = true;
+        robots[idx]['cleaning'] = true;
+      } else if (payload.contains('OFF') || payload.contains('STOP')) {
+        robots[idx]['cleaning'] = false;
+      }
+    });
   }
 
   @override
@@ -899,16 +894,32 @@ class _RobotsScreenState extends State<RobotsScreen> {
           Row(
             children: [
               GestureDetector(
-                onTap: () => _toggleRobotStatus(index),
+                onTap: () => _startRobot(index),
                 child: Container(
                   padding: EdgeInsets.all(8 * scale),
                   decoration: BoxDecoration(
-                    color: isOnline ? AppColors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                    color: AppColors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isOnline ? Icons.wifi : Icons.wifi_off,
-                    color: isOnline ? AppColors.green : Colors.red,
+                    Icons.play_arrow,
+                    color: AppColors.orange,
+                    size: 18 * scale,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8 * scale),
+              GestureDetector(
+                onTap: () => _stopRobot(index),
+                child: Container(
+                  padding: EdgeInsets.all(8 * scale),
+                  decoration: BoxDecoration(
+                    color: AppColors.navy.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.stop,
+                    color: AppColors.navy,
                     size: 18 * scale,
                   ),
                 ),
