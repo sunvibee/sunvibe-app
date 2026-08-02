@@ -86,8 +86,8 @@ class _RobotsScreenState extends State<RobotsScreen> {
       // API is the authoritative source — returns only this user's robots.
       final rows = await ApiService(token: auth.token).getRobots();
       final loaded = rows.map((r) => <String, dynamic>{
-        'id':         r['robot_uid']  as String,
-        'name':       r['robot_name'] as String? ?? r['robot_uid'] as String,
+        'id':         r['robot_uid'] as String,
+        'name':       r['robot_uid'] as String,
         'online':     false,
         'battery':    85,
         'cleaning':   false,
@@ -313,14 +313,13 @@ class _RobotsScreenState extends State<RobotsScreen> {
       // Validate ID exists in the pre-registered robot registry
       final info = await api.validateRobot(robotId);
       final canonicalId = info['robot_uid'] as String? ?? robotId;
-      final label = info['label'] as String? ?? canonicalId;
 
-      await api.registerRobot(robotUid: canonicalId, robotName: label);
+      await api.registerRobot(robotUid: canonicalId, robotName: canonicalId);
       MQTTService.instance.subscribeToRobot(canonicalId);
 
       final newRobot = {
         'id': canonicalId,
-        'name': label,
+        'name': canonicalId,
         'online': true,
         'battery': 85,
         'cleaning': false,
@@ -408,25 +407,6 @@ class _RobotsScreenState extends State<RobotsScreen> {
         ],
       ),
     );
-  }
-
-  void _startRobot(int index) {
-    final robotId = robots[index]['id'] as String;
-    MQTTService.instance.publishToRobot(robotId, 'ON');
-    setState(() {
-      robots[index]['online'] = true;
-      robots[index]['cleaning'] = true;
-    });
-    _saveRobots();
-    _showFeedback('Robot $robotId started', AppColors.orange);
-  }
-
-  void _stopRobot(int index) {
-    final robotId = robots[index]['id'] as String;
-    MQTTService.instance.publishToRobot(robotId, 'OFF');
-    setState(() { robots[index]['cleaning'] = false; });
-    _saveRobots();
-    _showFeedback('Robot $robotId stopped', AppColors.navy);
   }
 
   void _handleMqttMessage(MqttMessage msg) {
@@ -917,59 +897,22 @@ class _RobotsScreenState extends State<RobotsScreen> {
               ],
             ),
           ),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => _startRobot(index),
-                child: Container(
-                  padding: EdgeInsets.all(8 * scale),
-                  decoration: BoxDecoration(
-                    color: AppColors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.play_arrow,
-                    color: AppColors.orange,
-                    size: 18 * scale,
-                  ),
+          if (!isMaster)
+            GestureDetector(
+              onTap: () => _removeRobot(index),
+              child: Container(
+                padding: EdgeInsets.all(8 * scale),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 18 * scale,
                 ),
               ),
-              SizedBox(width: 8 * scale),
-              GestureDetector(
-                onTap: () => _stopRobot(index),
-                child: Container(
-                  padding: EdgeInsets.all(8 * scale),
-                  decoration: BoxDecoration(
-                    color: AppColors.navy.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.stop,
-                    color: AppColors.navy,
-                    size: 18 * scale,
-                  ),
-                ),
-              ),
-              if (!isMaster) ...[
-                SizedBox(width: 8 * scale),
-                GestureDetector(
-                  onTap: () => _removeRobot(index),
-                  child: Container(
-                    padding: EdgeInsets.all(8 * scale),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline,
-                      color: Colors.red,
-                      size: 18 * scale,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
         ],
       ),
     );
