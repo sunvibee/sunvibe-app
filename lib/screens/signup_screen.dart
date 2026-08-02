@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
-import 'main_navigation_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -69,11 +68,13 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          (_) => false,
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created! Please log in.'),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
+        Navigator.pop(context);
       }
     } on ApiException catch (e) {
       _showError(e.message);

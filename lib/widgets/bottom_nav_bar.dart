@@ -1,17 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 
-// class AppColors {
-//   static const Color background = Color(0xFFF5F6F8);
-//   static const Color card = Color(0xFFF1F1F4);
-//   static const Color orange = Color(0xFFFF7A00);
-//   static const Color orangeDark = Color(0xFFFF9A2E);
-//   static const Color navy = Color(0xFF1E2430);
-//   static const Color blue = Color(0xFF1D6FF2);
-//   static const Color red = Color(0xFFE23B3B);
-//   static const Color green = Color(0xFF23C16B);
-// }
-
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
