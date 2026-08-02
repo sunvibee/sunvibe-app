@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'home_screen.dart';
 import 'reports_screen.dart';
 import 'support_screen.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
+import '../services/mqtt_service.dart';
+import '../services/api_service.dart';
+import '../providers/auth_provider.dart';
 
 class RobotsScreen extends StatefulWidget {
   const RobotsScreen({super.key});
@@ -13,14 +18,22 @@ class RobotsScreen extends StatefulWidget {
 }
 
 class _RobotsScreenState extends State<RobotsScreen> {
-  // Robots tab active on this screen
   final TextEditingController _searchController = TextEditingController();
+  final List<_ConnectedRobot> _connectedRobots = [];
+  StreamSubscription<MqttMessage>? _mqttSub;
 
-  // Replace with real data from your backend/state layer.
-  final int totalRobots = 0;
-  final int onlineRobots = 0;
-  final int offlineRobots = 0;
-  final int alerts = 0;
+  int get _totalRobots => _connectedRobots.length;
+  int get _onlineRobots => _connectedRobots.where((r) => r.isRunning).length;
+  int get _offlineRobots => _connectedRobots.where((r) => !r.isRunning).length;
+  static const int _alerts = 0;
+
+@override
+  void initState() {
+    super.initState();
+    _mqttSub = MQTTService.instance.onMessage.listen(_handleMqttMessage);
+    // Load robots saved to this account from previous sessions
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRobotsFromApi());
+  }
 
   double _scale(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -30,6 +43,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _mqttSub?.cancel();
     super.dispose();
   }
 
@@ -75,7 +89,10 @@ class _RobotsScreenState extends State<RobotsScreen> {
                     SizedBox(height: 18 * scale),
                     _buildStatsRow(scale),
                     SizedBox(height: 12 * scale),
-                    _buildEmptyState(scale),
+                    if (_connectedRobots.isEmpty)
+                      _buildEmptyState(scale)
+                    else
+                      _buildRobotList(scale),
                     SizedBox(height: 20 * scale),
                     _buildAddNewRobot(scale),
                     SizedBox(height: 20 * scale),
@@ -206,7 +223,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         iconBg: const Color(0xFFDCEAFB),
         iconColor: const Color(0xFF1D6FF2),
         label: "Total Robots",
-        value: totalRobots,
+        value: _totalRobots,
         valueColor: Colors.black,
       ),
       _StatData(
@@ -214,7 +231,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         iconBg: const Color(0xFFDCF5E4),
         iconColor: AppColors.green,
         label: "Online",
-        value: onlineRobots,
+        value: _onlineRobots,
         valueColor: AppColors.green,
       ),
       _StatData(
@@ -222,7 +239,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         iconBg: const Color(0xFFFBDCDC),
         iconColor: AppColors.red,
         label: "Offline",
-        value: offlineRobots,
+        value: _offlineRobots,
         valueColor: AppColors.red,
       ),
       _StatData(
@@ -230,7 +247,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
         iconBg: const Color(0xFFFBEACB),
         iconColor: AppColors.orange,
         label: "Alerts",
-        value: alerts,
+        value: _alerts,
         valueColor: AppColors.orange,
       ),
     ];
@@ -455,8 +472,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
             borderRadius: BorderRadius.circular(28),
           ),
         ),
-        onPressed: () =>
-            _showFeedback("Opening robot pairing…", AppColors.blue),
+        onPressed: _showConnectDialog,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -487,10 +503,7 @@ class _RobotsScreenState extends State<RobotsScreen> {
             elevation: 4,
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: () {
-                // Navigate to Add Robot Screen
-                _showFeedback("Add a new robot", AppColors.blue);
-              },
+              onTap: _showConnectDialog,
               child: Padding(
                 padding: EdgeInsets.all(18 * scale),
                 child: Icon(Icons.add, color: Colors.white, size: 26 * scale),
@@ -506,6 +519,365 @@ class _RobotsScreenState extends State<RobotsScreen> {
       ),
     );
   }
+
+  // ---- Connect dialog ----
+  void _showConnectDialog() {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.link, color: AppColors.orange),
+            SizedBox(width: 10),
+            Text(
+              "Connect Robot",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Enter the Client ID provided with your robot.",
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: controller,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  labelText: "Client ID",
+                  hintText: "e.g. SV-001",
+                  prefixIcon: const Icon(Icons.smart_toy_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppColors.orange,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return "Client ID is required";
+                  if (_connectedRobots.any((r) => r.clientId == v.trim())) {
+                    return "This robot is already connected";
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.orange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                final id = controller.text.trim();
+                Navigator.pop(ctx);
+                _connectRobot(id);
+              }
+            },
+            child: const Text("Connect"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadRobotsFromApi() async {
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      if (token == null) return;
+      final robots = await ApiService(token: token).getRobots();
+      if (!mounted) return;
+      setState(() {
+        for (final r in robots) {
+          final uid = r['robot_uid'] as String;
+          if (!_connectedRobots.any((c) => c.clientId == uid)) {
+            _connectedRobots.add(_ConnectedRobot(
+              clientId: uid,
+              label: r['robot_name'] as String? ?? uid,
+            ));
+            MQTTService.instance.subscribeToRobot(uid);
+          }
+        }
+      });
+    } catch (_) {
+      // silently ignore — robots will just start empty
+    }
+  }
+
+  Future<void> _connectRobot(String clientId) async {
+    // Show a compact loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.orange),
+            SizedBox(width: 18),
+            Text("Verifying robot…"),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      final api = ApiService(token: token);
+
+      // 1. Validate the ID exists in the pre-registered registry
+      final info = await api.validateRobot(clientId);
+      final label = info['label'] as String? ?? clientId;
+
+      // 2. Associate with the user's account
+      await api.registerRobot(robotUid: clientId, robotName: label);
+
+      // 3. Subscribe to MQTT topics for this robot
+      MQTTService.instance.subscribeToRobot(clientId);
+
+      if (!mounted) return;
+      Navigator.pop(context); // close loading
+      setState(() => _connectedRobots.add(
+        _ConnectedRobot(clientId: clientId, label: label),
+      ));
+      _showFeedback("Robot $clientId connected!", AppColors.green);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showFeedback(e.message, AppColors.red);
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      _showFeedback("Connection failed. Try again.", AppColors.red);
+    }
+  }
+
+  void _startRobot(String clientId) {
+    MQTTService.instance.publishToRobot(clientId, "ON");
+    final idx = _connectedRobots.indexWhere((r) => r.clientId == clientId);
+    if (idx != -1) setState(() => _connectedRobots[idx].status = _RobotStatus.running);
+    _showFeedback("Robot $clientId started", AppColors.orange);
+  }
+
+  void _stopRobot(String clientId) {
+    MQTTService.instance.publishToRobot(clientId, "OFF");
+    final idx = _connectedRobots.indexWhere((r) => r.clientId == clientId);
+    if (idx != -1) setState(() => _connectedRobots[idx].status = _RobotStatus.stopped);
+    _showFeedback("Robot $clientId stopped", AppColors.navy);
+  }
+
+  void _handleMqttMessage(MqttMessage msg) {
+    final parts = msg.topic.split('/');
+    if (parts.length < 3) return;
+    final robotId = parts[1];
+    final payload = msg.payload.toUpperCase();
+    final idx = _connectedRobots.indexWhere((r) => r.clientId == robotId);
+    if (idx == -1) return;
+    setState(() {
+      if (payload.contains('ON') || payload.contains('RUN') || payload.contains('START')) {
+        _connectedRobots[idx].status = _RobotStatus.running;
+      } else if (payload.contains('OFF') || payload.contains('STOP')) {
+        _connectedRobots[idx].status = _RobotStatus.stopped;
+      }
+    });
+  }
+
+  // ---- Robot list & card ----
+  Widget _buildRobotList(double scale) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Connected Robots",
+          style: TextStyle(
+            fontSize: 18 * scale,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 12 * scale),
+        ..._connectedRobots.map((r) => _buildRobotCard(r, scale)),
+      ],
+    );
+  }
+
+  Widget _buildRobotCard(_ConnectedRobot robot, double scale) {
+    final statusColor = robot.isRunning ? AppColors.green : Colors.grey;
+    return Container(
+      margin: EdgeInsets.only(bottom: 12 * scale),
+      padding: EdgeInsets.all(16 * scale),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(.10),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50 * scale,
+            height: 50 * scale,
+            decoration: BoxDecoration(
+              color: statusColor.withOpacity(.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.smart_toy_outlined,
+              color: statusColor,
+              size: 26 * scale,
+            ),
+          ),
+          SizedBox(width: 14 * scale),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Client ID",
+                  style: TextStyle(
+                    fontSize: 11 * scale,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                Text(
+                  robot.label,
+                  style: TextStyle(
+                    fontSize: 16 * scale,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                if (robot.label != robot.clientId)
+                  Text(
+                    robot.clientId,
+                    style: TextStyle(
+                      fontSize: 11 * scale,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                SizedBox(height: 5 * scale),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7 * scale,
+                      height: 7 * scale,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 5 * scale),
+                    Text(
+                      robot.isRunning ? "RUNNING" : "STOPPED",
+                      style: TextStyle(
+                        fontSize: 11 * scale,
+                        fontWeight: FontWeight.w600,
+                        color: robot.isRunning
+                            ? AppColors.green
+                            : Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 34 * scale,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.orange,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                    padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: Icon(Icons.play_arrow, size: 15 * scale),
+                  label: Text("Start", style: TextStyle(fontSize: 12 * scale)),
+                  onPressed: robot.isRunning
+                      ? null
+                      : () => _startRobot(robot.clientId),
+                ),
+              ),
+              SizedBox(height: 7 * scale),
+              SizedBox(
+                height: 34 * scale,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.navy,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade200,
+                    padding: EdgeInsets.symmetric(horizontal: 10 * scale),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  icon: Icon(Icons.stop, size: 15 * scale),
+                  label: Text("Stop", style: TextStyle(fontSize: 12 * scale)),
+                  onPressed: !robot.isRunning
+                      ? null
+                      : () => _stopRobot(robot.clientId),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _RobotStatus { running, stopped }
+
+class _ConnectedRobot {
+  final String clientId;
+  final String label;
+  _RobotStatus status;
+
+  _ConnectedRobot({
+    required this.clientId,
+    String? label,
+    this.status = _RobotStatus.stopped,
+  }) : label = label ?? clientId;
+
+  bool get isRunning => status == _RobotStatus.running;
 }
 
 class _StatData {

@@ -132,6 +132,27 @@ class ApiService {
 
   // ── Robots ──────────────────────────────────────────────────────────────────
 
+  /// Checks that the robot UID exists in the pre-registered registry.
+  /// Throws [ApiException] with a user-facing message if not found.
+  Future<Map<String, dynamic>> validateRobot(String robotUid) async {
+    try {
+      final r = await http
+          .get(_uri('/api/robots/validate/$robotUid'), headers: _headers)
+          .timeout(_timeout);
+      final body = _decode(r);
+      _assertOk(r, body);
+      return body;
+    } on ApiException {
+      rethrow;
+    } on SocketException {
+      throw ApiException('No internet connection');
+    } on TimeoutException {
+      throw ApiException('Request timed out — check your connection');
+    } catch (e) {
+      throw ApiException('Something went wrong: $e');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getRobots() async {
     final r = await http
         .get(_uri('/api/robots'), headers: _headers)
