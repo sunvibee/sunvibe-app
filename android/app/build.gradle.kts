@@ -12,23 +12,24 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // ===== ADD THIS FOR DESUGARING =====
+        isCoreLibraryDesugaringEnabled = true
+        // ===================================
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.sunvibee_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Ensure minSdk is at least 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // ===== ADD FOR MULTIDEX =====
+        multiDexEnabled = true
+        // =============================
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -42,4 +43,14 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // ===== ADD FOR DESUGARING =====
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    // ================================
+    
+    // ===== ADD FOR MULTIDEX =====
+    implementation("androidx.multidex:multidex:2.0.1")
+    // ==============================
 }
