@@ -108,12 +108,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         SizedBox(width: 8 * scale),
         _headerIconButton(
           scale,
-          Icons.search,
-          onTap: () => _showFeedback("Search reports", AppColors.navy),
-        ),
-        SizedBox(width: 8 * scale),
-        _headerIconButton(
-          scale,
           Icons.file_download_outlined,
           onTap: () => _showFeedback("Download reports", AppColors.blue),
         ),
@@ -264,7 +258,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(.10),
+            color: Colors.grey.withValues(alpha: .10),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -340,7 +334,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(.10),
+            color: Colors.grey.withValues(alpha: .10),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -398,7 +392,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(.10),
+            color: Colors.grey.withValues(alpha: .10),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -447,13 +441,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
             height: size,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.blue.withOpacity(.08),
+              color: AppColors.blue.withValues(alpha: .08),
             ),
           ),
           Icon(
             Icons.assignment_outlined,
             size: size * 0.5,
-            color: AppColors.blue.withOpacity(.35),
+            color: AppColors.blue.withValues(alpha: .35),
           ),
           Positioned(
             bottom: size * 0.12,
@@ -461,7 +455,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             child: Icon(
               Icons.search,
               size: size * 0.32,
-              color: AppColors.blue.withOpacity(.6),
+              color: AppColors.blue.withValues(alpha: .6),
             ),
           ),
         ],
@@ -482,7 +476,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             borderRadius: BorderRadius.circular(28),
           ),
         ),
-        onPressed: () => _showFeedback("Generating report…", AppColors.blue),
+        onPressed: () => _showFeedback("Generating reportâ€¦", AppColors.blue),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -573,7 +567,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           horizontal: 6 * scale,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.blue.withOpacity(0.1) : Colors.white,
+          color: isSelected ? AppColors.blue.withValues(alpha: 0.1) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.blue : Colors.grey.shade200,
