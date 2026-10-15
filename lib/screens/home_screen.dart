@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
@@ -5,7 +6,7 @@ import '../services/mqtt_service.dart';
 
 /// Current operating state of the robot. Drives the ONLINE/OFFLINE
 /// pill on the status card and which SnackBar message is shown.
-enum RobotState { online, stopped, resumed, emergencyStopped }
+enum RobotState { offline, online, stopped, resumed, emergencyStopped }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,14 +16,50 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  StreamSubscription<bool>? _statusSub;
+  StreamSubscription<MqttMessage>? _mqttSub;
+  RobotState robotState = RobotState.offline;
+
   @override
   void initState() {
     super.initState();
-    // MQTT is managed by MainNavigationScreen for the full app lifetime.
+    final connected = MQTTService.instance.isConnected;
+    robotState = connected ? RobotState.stopped : RobotState.offline;
+
+    _statusSub = MQTTService.instance.onConnectionStatus.listen((connected) {
+      if (!mounted) return;
+      setState(() {
+        if (!connected) {
+          robotState = RobotState.offline;
+        } else if (robotState == RobotState.offline) {
+          robotState = RobotState.stopped;
+        }
+      });
+    });
+
+    _mqttSub = MQTTService.instance.onMessage.listen((msg) {
+      if (!mounted) return;
+      final payload = msg.payload.toUpperCase().trim();
+      setState(() {
+        if (payload.contains('OFFLINE') || payload.contains('DISCONNECT')) {
+          robotState = RobotState.offline;
+        } else if (payload.contains('ON') || payload.contains('RUN') || payload.contains('START')) {
+          robotState = RobotState.online;
+        } else if (payload.contains('OFF') || payload.contains('STOP')) {
+          robotState = RobotState.stopped;
+        } else if (robotState == RobotState.offline) {
+          robotState = RobotState.stopped;
+        }
+      });
+    });
   }
 
-  
-  RobotState robotState = RobotState.online;
+  @override
+  void dispose() {
+    _statusSub?.cancel();
+    _mqttSub?.cancel();
+    super.dispose();
+  }
 
   // Simple responsive scale based on screen width.
   // 375 = standard reference width (iPhone-ish). Clamped so text/icons
@@ -33,11 +70,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool get _isOnline =>
-      robotState == RobotState.online || robotState == RobotState.resumed;
+      MQTTService.instance.isConnected &&
+      (robotState == RobotState.online || robotState == RobotState.resumed);
 
   String get _statusLabel {
+    if (!MQTTService.instance.isConnected) return "OFFLINE";
     switch (robotState) {
+      case RobotState.offline:
+        return "OFFLINE";
       case RobotState.online:
+        return "ONLINE";
       case RobotState.resumed:
         return "ONLINE";
       case RobotState.stopped:
@@ -47,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Color get _statusColor => _isOnline ? AppColors.green : AppColors.red;
+  Color get _statusColor => _isOnline ? AppColors.green : Colors.red;
 
   void _showFeedback(String message, Color color) {
     ScaffoldMessenger.of(context)
@@ -63,12 +105,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onStart() {
+    if (!MQTTService.instance.isConnected) {
+      _showFeedback('Cannot start: Robot / MQTT is offline', Colors.red);
+      return;
+    }
     MQTTService.instance.publishToAll('ON');
     setState(() { robotState = RobotState.online; });
     _showFeedback('Robot Started', AppColors.orange);
   }
 
   void _onStop() {
+    if (!MQTTService.instance.isConnected) {
+      _showFeedback('Robot is offline', Colors.red);
+      return;
+    }
     MQTTService.instance.publishToAll('OFF');
     setState(() { robotState = RobotState.stopped; });
     _showFeedback('Robot Stopped', AppColors.navy);
@@ -440,10 +490,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

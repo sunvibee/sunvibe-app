@@ -23,6 +23,9 @@ class MQTTService {
   final _messageController = StreamController<MqttMessage>.broadcast();
   Stream<MqttMessage> get onMessage => _messageController.stream;
 
+  final _connectionStatusController = StreamController<bool>.broadcast();
+  Stream<bool> get onConnectionStatus => _connectionStatusController.stream;
+
   bool get isConnected =>
       _client?.connectionStatus?.state == MqttConnectionState.connected;
 
@@ -43,6 +46,7 @@ class MQTTService {
 
     _client!.onConnected = () {
       print('MQTT Connected');
+      _connectionStatusController.add(true);
       _client!.subscribe('solarcleaner/status', MqttQos.atLeastOnce);
       _client!.subscribe('solarcleaner/response', MqttQos.atLeastOnce);
       // Re-subscribe to any robots that were added before/during reconnect.
@@ -54,6 +58,7 @@ class MQTTService {
 
     _client!.onDisconnected = () {
       print('MQTT Disconnected');
+      _connectionStatusController.add(false);
     };
 
     _client!.connectionMessage = MqttConnectMessage()
@@ -76,6 +81,7 @@ class MQTTService {
       });
     } catch (e) {
       print("MQTT connect error: $e");
+      _connectionStatusController.add(false);
       _client?.disconnect();
     }
   }
@@ -126,6 +132,7 @@ class MQTTService {
   }
 
   void disconnect() {
+    _connectionStatusController.add(false);
     _client?.disconnect();
   }
 }
