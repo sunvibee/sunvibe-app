@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'home_screen.dart';
 import 'robots_screen.dart';
-import 'reports_screen.dart';
 import 'support_screen.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../services/mqtt_service.dart';
+import '../utils/app_colors.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
+
+  /// Programmatically switch the active navigation tab from any child widget/screen.
+  /// 0 = Home, 1 = Robot, 2 = Support
+  static void switchTab(BuildContext context, int index) {
+    final state = context.findAncestorStateOfType<_MainNavigationScreenState>();
+    state?.changeTab(index);
+  }
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -17,6 +24,14 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int currentIndex = 0;
   bool _isExiting = false;
+
+  void changeTab(int index) {
+    if (index >= 0 && index < pages.length && index != currentIndex) {
+      setState(() {
+        currentIndex = index;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -33,7 +48,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> pages = const [
     HomeScreen(),
     RobotsScreen(),
-    ReportsScreen(),
     SupportScreen(),
   ];
 
@@ -69,7 +83,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(index: currentIndex, children: pages),
+        backgroundColor: AppColors.background,
+        body: IndexedStack(
+          index: currentIndex.clamp(0, pages.length - 1),
+          children: pages,
+        ),
         bottomNavigationBar: BottomNavBar(
           currentIndex: currentIndex,
           onTap: (index) {

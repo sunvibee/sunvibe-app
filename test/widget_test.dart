@@ -5,6 +5,7 @@ import 'package:sunvibee_app/main.dart';
 import 'package:sunvibee_app/providers/auth_provider.dart';
 
 import 'package:sunvibee_app/screens/support_screen.dart';
+import 'package:sunvibee_app/widgets/bottom_nav_bar.dart';
 
 void main() {
   testWidgets('App builds without errors', (WidgetTester tester) async {
@@ -65,5 +66,30 @@ void main() {
     expect(find.text('Call Support'), findsNothing);
     expect(find.text('FAQ'), findsOneWidget);
     expect(find.byIcon(Icons.email_outlined), findsOneWidget);
+  });
+
+  testWidgets('BottomNavBar displays 3 centralized tabs without Reports', (WidgetTester tester) async {
+    int tappedIndex = -1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: BottomNavBar(
+            currentIndex: 0,
+            onTap: (index) => tappedIndex = index,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Robot'), findsOneWidget);
+    expect(find.text('Support'), findsOneWidget);
+    expect(find.text('Reports'), findsNothing);
+
+    await tester.tap(find.text('Robot'));
+    expect(tappedIndex, 1);
+
+    await tester.tap(find.text('Support'));
+    expect(tappedIndex, 2);
   });
 }
