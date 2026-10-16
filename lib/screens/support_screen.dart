@@ -92,42 +92,44 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Could not open an email app automatically. You can contact us directly at:",
-              style: TextStyle(
-                fontSize: 14 * scale,
-                color: Colors.black87,
-                height: 1.4,
-              ),
-            ),
-            SizedBox(height: 12 * scale),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(
-                horizontal: 14 * scale,
-                vertical: 12 * scale,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F4FF),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.blue.withValues(alpha: 0.3),
-                ),
-              ),
-              child: SelectableText(
-                email,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Could not open an email app automatically. You can contact us directly at:",
                 style: TextStyle(
-                  fontSize: 15 * scale,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.blue,
+                  fontSize: 14 * scale,
+                  color: Colors.black87,
+                  height: 1.4,
                 ),
               ),
-            ),
-          ],
+              SizedBox(height: 12 * scale),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 14 * scale,
+                  vertical: 12 * scale,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F4FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.blue.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: SelectableText(
+                  email,
+                  style: TextStyle(
+                    fontSize: 15 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -710,7 +712,7 @@ class _SupportScreenState extends State<SupportScreen> {
         "label": "Email Support",
         "color": AppColors.blue,
         "bgColor": const Color(0xFFE8F1FF),
-        "email": "support@sunvibee.com",
+        "email": "sunvibe2024@gmail.com",
       },
       {
         "icon": Icons.help_outline,

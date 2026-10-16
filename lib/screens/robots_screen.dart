@@ -205,161 +205,174 @@ class _RobotsScreenState extends State<RobotsScreen> {
         
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final mediaQuery = MediaQuery.of(context);
+            final scale = (mediaQuery.size.width / 375).clamp(0.85, 1.15);
+
             return Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Container(
-                padding: EdgeInsets.all(24),
-                width: MediaQuery.of(context).size.width * 0.9,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.orange.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.smart_toy,
-                        color: AppColors.orange,
-                        size: 40,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      "Add New Robot",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      "Enter the Robot ID and Password to connect",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: TextField(
-                        controller: _robotIdController,
-                        focusNode: _robotIdFocusNode,
-                        autofocus: true,
-                        textInputAction: TextInputAction.next,
-                        onSubmitted: (_) {
-                          _robotPasswordFocusNode.requestFocus();
-                        },
-                        decoration: InputDecoration(
-                          hintText: "Enter Robot ID (e.g. SolarCleaner01)",
-                          prefixIcon: Icon(Icons.precision_manufacturing, color: AppColors.orange),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 400,
+                  maxHeight: mediaQuery.size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(20 * scale),
+                  physics: const ClampingScrollPhysics(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12 * scale),
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
                         ),
-                        style: TextStyle(fontSize: 16),
+                        child: Icon(
+                          Icons.smart_toy,
+                          color: AppColors.orange,
+                          size: 36 * scale,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade300),
+                      SizedBox(height: 12 * scale),
+                      Text(
+                        "Add New Robot",
+                        style: TextStyle(
+                          fontSize: 20 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
                       ),
-                      child: TextField(
-                        controller: _robotPasswordController,
-                        focusNode: _robotPasswordFocusNode,
-                        obscureText: !isPasswordVisible,
-                        textInputAction: TextInputAction.done,
-                        decoration: InputDecoration(
-                          hintText: "Enter Robot Password",
-                          prefixIcon: Icon(Icons.lock_outline, color: AppColors.orange),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.grey.shade600,
-                            ),
-                            onPressed: () {
-                              setDialogState(() {
-                                isPasswordVisible = !isPasswordVisible;
-                              });
-                            },
+                      SizedBox(height: 6 * scale),
+                      Text(
+                        "Enter the Robot ID and Password to connect",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13 * scale,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      SizedBox(height: 16 * scale),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          controller: _robotIdController,
+                          focusNode: _robotIdFocusNode,
+                          autofocus: true,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) {
+                            _robotPasswordFocusNode.requestFocus();
+                          },
+                          decoration: InputDecoration(
+                            hintText: "Enter Robot ID (e.g. SolarCleaner01)",
+                            hintStyle: TextStyle(fontSize: 14 * scale),
+                            prefixIcon: Icon(Icons.precision_manufacturing, color: AppColors.orange, size: 22 * scale),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 12 * scale),
                           ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          style: TextStyle(fontSize: 15 * scale),
                         ),
-                        style: TextStyle(fontSize: 16),
-                        onSubmitted: (_) => _connectRobot(context),
                       ),
-                    ),
-                    SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            onPressed: () {
-                              _robotIdFocusNode.unfocus();
-                              _robotPasswordFocusNode.unfocus();
-                              Navigator.pop(context);
-                            },
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Text(
-                              "Cancel",
-                              style: TextStyle(
-                                fontSize: 15,
+                      SizedBox(height: 10 * scale),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: TextField(
+                          controller: _robotPasswordController,
+                          focusNode: _robotPasswordFocusNode,
+                          obscureText: !isPasswordVisible,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            hintText: "Enter Robot Password",
+                            hintStyle: TextStyle(fontSize: 14 * scale),
+                            prefixIcon: Icon(Icons.lock_outline, color: AppColors.orange, size: 22 * scale),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                isPasswordVisible ? Icons.visibility_off : Icons.visibility,
                                 color: Colors.grey.shade600,
+                                size: 20 * scale,
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  isPasswordVisible = !isPasswordVisible;
+                                });
+                              },
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14 * scale, vertical: 12 * scale),
+                          ),
+                          style: TextStyle(fontSize: 15 * scale),
+                          onSubmitted: (_) => _connectRobot(context),
+                        ),
+                      ),
+                      SizedBox(height: 18 * scale),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () {
+                                _robotIdFocusNode.unfocus();
+                                _robotPasswordFocusNode.unfocus();
+                                Navigator.pop(context);
+                              },
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(vertical: 12 * scale),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              child: Text(
+                                "Cancel",
+                                style: TextStyle(
+                                  fontSize: 14 * scale,
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: _isConnecting ? null : () => _connectRobot(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.orange,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          SizedBox(width: 10 * scale),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _isConnecting ? null : () => _connectRobot(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.orange,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(vertical: 12 * scale),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
+                              child: _isConnecting
+                                  ? SizedBox(
+                                      width: 18 * scale,
+                                      height: 18 * scale,
+                                      child: const CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      "Connect Robot",
+                                      style: TextStyle(
+                                        fontSize: 14 * scale,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                             ),
-                            child: _isConnecting
-                                ? SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Text(
-                                    "Connect Robot",
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

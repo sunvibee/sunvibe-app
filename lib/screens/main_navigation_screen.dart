@@ -110,10 +110,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       backgroundColor: Colors.white,
       child: Container(
         padding: EdgeInsets.all(24 * scale),
-        constraints: BoxConstraints(maxWidth: 340 * scale),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        constraints: BoxConstraints(
+          maxWidth: 340 * scale,
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             // Icon Circle
             Container(
               width: 72 * scale,
@@ -208,6 +213,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

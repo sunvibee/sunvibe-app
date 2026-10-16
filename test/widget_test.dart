@@ -68,11 +68,14 @@ void main() {
     expect(find.byIcon(Icons.email_outlined), findsOneWidget);
   });
 
-  testWidgets('BottomNavBar displays 3 centralized tabs without Reports', (WidgetTester tester) async {
+  testWidgets('BottomNavBar displays 3 centralized tabs without Reports and preserves body height', (WidgetTester tester) async {
     int tappedIndex = -1;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
+          body: const SizedBox.expand(
+            child: Center(child: Text('Body Content')),
+          ),
           bottomNavigationBar: BottomNavBar(
             currentIndex: 0,
             onTap: (index) => tappedIndex = index,
@@ -81,6 +84,8 @@ void main() {
       ),
     );
 
+    final bodySize = tester.getSize(find.text('Body Content'));
+    expect(bodySize.height, greaterThan(0));
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Robot'), findsOneWidget);
     expect(find.text('Support'), findsOneWidget);
@@ -92,4 +97,4 @@ void main() {
     await tester.tap(find.text('Support'));
     expect(tappedIndex, 2);
   });
-}
+}

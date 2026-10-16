@@ -48,6 +48,7 @@ class BottomNavBar extends StatelessWidget {
       top: false,
       child: Align(
         alignment: Alignment.bottomCenter,
+        heightFactor: 1.0,
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 440 * scale,
