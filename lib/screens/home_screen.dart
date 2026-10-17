@@ -130,13 +130,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onStart() {
-    if (!MQTTService.instance.isConnected) {
-      _showFeedback('Cannot start: Robot / MQTT is offline', Colors.red);
-      return;
+    if (MQTTService.instance.isConnected) {
+      MQTTService.instance.publishToAll('ON');
     }
-    MQTTService.instance.publishToAll('ON');
-    setState(() { robotState = RobotState.online; });
-    _showFeedback('Robot Started', AppColors.orange);
+    setState(() {
+      robotState = RobotState.online;
+    });
+    _showFeedback(
+      MQTTService.instance.isConnected
+          ? 'Robot Started'
+          : 'Robot Started (Local Mode)',
+      AppColors.orange,
+    );
 
     NotificationService().addNotification(
       title: 'Robot Started',
@@ -146,12 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onStop() {
-    if (!MQTTService.instance.isConnected) {
-      _showFeedback('Robot is offline', Colors.red);
-      return;
+    if (MQTTService.instance.isConnected) {
+      MQTTService.instance.publishToAll('OFF');
     }
-    MQTTService.instance.publishToAll('OFF');
-    setState(() { robotState = RobotState.stopped; });
+    setState(() {
+      robotState = RobotState.stopped;
+    });
     _showFeedback('Robot Stopped', AppColors.navy);
 
     NotificationService().addNotification(
@@ -226,19 +231,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Text(
-            "SunVibee",
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 28 * scale,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/logo.png',
+              height: 38 * scale,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
-          ),
+            SizedBox(width: 8 * scale),
+            Text(
+              "SunVibee",
+              style: TextStyle(
+                fontSize: 26 * scale,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ],
         ),
-        SizedBox(width: 12 * scale),
         Material(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -293,102 +305,165 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Robot Status Card ----------------
+  //---------------- Hero Robot Status Card ----------------
   Widget _buildRobotStatusCard(double scale) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(22 * scale),
+      height: 290 * scale,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.orange, AppColors.orangeDark],
-        ),
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(28 * scale),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withValues(alpha: .35),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 22,
-            offset: const Offset(0, 12),
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: _statusColor.withValues(alpha: 0.12),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Robot Status",
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22 * scale,
-              fontWeight: FontWeight.bold,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28 * scale),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. Hero Photograph Background
+            Image.asset(
+              'assets/images/robot_hero.jpg',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppColors.orange, AppColors.orangeDark],
+                  ),
+                ),
+                child: Center(
+                  child: Icon(Icons.smart_toy, size: 72 * scale, color: Colors.white),
+                ),
+              ),
             ),
-          ),
-          SizedBox(height: 18 * scale),
-          LayoutBuilder(
-            builder: (context, cardConstraints) {
-              // Stack image + info vertically on very narrow cards,
-              // side-by-side otherwise — keeps everything visible
-              // and never overflows on small devices.
-              final isNarrow = cardConstraints.maxWidth < 300;
-              final robotImage = _robotImage(scale, isNarrow);
-              final infoColumn = Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _statusPill(scale),
-                ],
-              );
 
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    robotImage,
-                    SizedBox(height: 16 * scale),
-                    infoColumn,
+            // 2. High-contrast Gradient Overlay
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.55),
+                    Colors.black.withValues(alpha: 0.15),
+                    Colors.black.withValues(alpha: 0.85),
                   ],
-                );
-              }
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
 
-              return Row(
+            // 3. Card Content (Title, Status Pill, Operating State)
+            Padding(
+              padding: EdgeInsets.all(20 * scale),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(flex: 5, child: robotImage),
-                  SizedBox(width: 16 * scale),
-                  Expanded(flex: 6, child: infoColumn),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
+                  // Top Row: Tag / Label + Dynamic Status Pill
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12 * scale,
+                          vertical: 6 * scale,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(14 * scale),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.solar_power_rounded,
+                              color: AppColors.orange,
+                              size: 16 * scale,
+                            ),
+                            SizedBox(width: 6 * scale),
+                            Text(
+                              "Solar Cleaner",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13 * scale,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _statusPill(scale),
+                    ],
+                  ),
 
-  Widget _robotImage(double scale, bool isNarrow) {
-    return SizedBox(
-      height: (isNarrow ? 150 : 190) * scale,
-      width: double.infinity,
-      child: Image.asset(
-        'assets/images/robot.png',
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // Placeholder shown until you add assets/images/robot.png
-          // (and register it under `flutter: assets:` in pubspec.yaml).
-          return Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .15),
-              borderRadius: BorderRadius.circular(20),
+                  // Bottom Info
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _isOnline
+                            ? "Cleaning Operation Active"
+                            : (robotState == RobotState.stopped
+                                ? "Standby • Ready to Clean"
+                                : "Robot System Offline"),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18 * scale,
+                          fontWeight: FontWeight.bold,
+                          shadows: const [
+                            Shadow(color: Colors.black87, blurRadius: 6),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 5 * scale),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8 * scale,
+                            height: 8 * scale,
+                            decoration: BoxDecoration(
+                              color: _statusColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          SizedBox(width: 6 * scale),
+                          Text(
+                            MQTTService.instance.isConnected
+                                ? "MQTT Connected • Real-time telemetry"
+                                : "Local / Standalone Mode",
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.90),
+                              fontSize: 12 * scale,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            child: Icon(
-              Icons.smart_toy,
-              size: 72 * scale,
-              color: Colors.white.withValues(alpha: .9),
-            ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -396,37 +471,50 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _statusPill(double scale) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: 18 * scale,
-        vertical: 14 * scale,
+        horizontal: 14 * scale,
+        vertical: 7 * scale,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16 * scale),
+        border: Border.all(
+          color: _statusColor.withValues(alpha: 0.65),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _statusColor.withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 14 * scale,
-            height: 14 * scale,
+            width: 10 * scale,
+            height: 10 * scale,
             decoration: BoxDecoration(
               color: _statusColor,
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: _statusColor,
+                  blurRadius: 4,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
           ),
-          SizedBox(width: 10 * scale),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _statusLabel,
-                maxLines: 1,
-                style: TextStyle(
-                  color: _statusColor,
-                  fontSize: 20 * scale,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+          SizedBox(width: 8 * scale),
+          Text(
+            _statusLabel,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13.5 * scale,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
             ),
           ),
         ],
@@ -436,33 +524,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
   //---------------- Controls Grid ----------------
   Widget _buildControlsGrid(double scale) {
-    return Column(
+    return Row(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.play_arrow_rounded,
-                title: "Start",
-                subtitle: "Begin Cleaning",
-                background: AppColors.orange,
-                onTap: _onStart,
-              ),
-            ),
-            SizedBox(width: 14 * scale),
-            Expanded(
-              child: _controlCard(
-                scale: scale,
-                icon: Icons.stop_rounded,
-                title: "Stop",
-                subtitle: "Stop Operation",
-                background: AppColors.navy,
-                onTap: _onStop,
-              ),
-            ),
-          ],
+        Expanded(
+          child: _controlCard(
+            scale: scale,
+            icon: Icons.play_arrow_rounded,
+            title: "Start Cleaning",
+            subtitle: "Begin Operation",
+            background: AppColors.orange,
+            onTap: _onStart,
+          ),
+        ),
+        SizedBox(width: 14 * scale),
+        Expanded(
+          child: _controlCard(
+            scale: scale,
+            icon: Icons.stop_rounded,
+            title: "Stop Cleaning",
+            subtitle: "Stop Operation",
+            background: AppColors.navy,
+            onTap: _onStop,
+          ),
         ),
       ],
     );

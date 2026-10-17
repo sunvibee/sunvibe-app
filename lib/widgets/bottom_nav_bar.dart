@@ -55,12 +55,12 @@ class BottomNavBar extends StatelessWidget {
         heightFactor: 1.0,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 420 * scale,
+            maxWidth: 290 * scale,
           ),
           child: Container(
             margin: EdgeInsets.only(
-              left: 20 * scale,
-              right: 20 * scale,
+              left: 12 * scale,
+              right: 12 * scale,
               bottom: bottomMargin,
               top: popOffset + (2 * scale),
             ),

@@ -235,5 +235,42 @@ void main() {
       // Under Unread tab, it now moves to Read so Unread shows empty
       expect(find.text('All Caught Up!'), findsOneWidget);
     });
+
+    testWidgets('Tapping Start Cleaning and Stop Cleaning on HomeScreen creates live notifications', (WidgetTester tester) async {
+      final service = NotificationService();
+      await service.clearAllNotifications();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider.value(value: service),
+          ],
+          child: const MaterialApp(
+            home: HomeScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Ensure Start Cleaning is visible in test viewport and tap
+      await tester.ensureVisible(find.text('Start Cleaning'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Start Cleaning'));
+      await tester.pumpAndSettle();
+
+      expect(service.totalCount, 1);
+      expect(service.notifications.first.title, 'Robot Started');
+
+      // Ensure Stop Cleaning is visible and tap
+      await tester.ensureVisible(find.text('Stop Cleaning'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stop Cleaning'));
+      await tester.pumpAndSettle();
+
+      expect(service.totalCount, 2);
+      expect(service.notifications.first.title, 'Robot Stopped');
+    });
   });
 }

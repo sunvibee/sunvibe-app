@@ -20,6 +20,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
+  @override
+  void initState() {
+    super.initState();
+    _notificationService.init();
+  }
+
   double _scale(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return (width / 375).clamp(0.85, 1.3);

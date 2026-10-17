@@ -30,7 +30,10 @@ class NotificationService extends ChangeNotifier {
       _notifications.where((n) => n.isRead).toList();
 
   Future<void> init() async {
-    if (_initialized) return;
+    if (_initialized) {
+      await _loadNotifications();
+      return;
+    }
     _initialized = true;
 
     try {
@@ -101,12 +104,12 @@ class NotificationService extends ChangeNotifier {
     String? robotId,
     bool showSystemNotification = true,
   }) async {
-    // Debounce duplicate notifications within 3 seconds
+    // Debounce duplicate notifications within 1 second
     if (_notifications.isNotEmpty) {
       final latest = _notifications.first;
       if (latest.title == title &&
           latest.message == message &&
-          DateTime.now().difference(latest.timestamp).inSeconds < 3) {
+          DateTime.now().difference(latest.timestamp).inSeconds < 1) {
         return;
       }
     }
