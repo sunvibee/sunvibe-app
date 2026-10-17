@@ -179,25 +179,38 @@ class _HomeScreenState extends State<HomeScreen> {
                 0,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (20 * scale),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _buildHeader(scale),
-                    SizedBox(height: 22 * scale),
-                    _buildRobotStatusCard(scale),
-                    SizedBox(height: 28 * scale),
-                    Text(
-                      "Robot Controls",
-                      style: TextStyle(
-                        fontSize: 22 * scale,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(scale),
+                        SizedBox(height: 20 * scale),
+                        _buildRobotStatusCard(scale),
+                      ],
                     ),
-                    SizedBox(height: 16 * scale),
-                    _buildControlsGrid(scale),
-                    SizedBox(height: 20 * scale),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: 20 * scale),
+                        Text(
+                          "Robot Controls",
+                          style: TextStyle(
+                            fontSize: 22 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        SizedBox(height: 14 * scale),
+                        _buildControlsGrid(scale),
+                        SizedBox(height: 14 * scale),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -303,40 +316,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  "Robot Status",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22 * scale,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8 * scale,
-                    height: 8 * scale,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 6 * scale),
-                  Text(
-                    "Live",
-                    style: TextStyle(color: Colors.white, fontSize: 14 * scale),
-                  ),
-                ],
-              ),
-            ],
+          Text(
+            "Robot Status",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22 * scale,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           SizedBox(height: 18 * scale),
           LayoutBuilder(

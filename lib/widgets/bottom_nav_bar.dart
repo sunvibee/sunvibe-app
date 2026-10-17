@@ -39,10 +39,14 @@ class BottomNavBar extends StatelessWidget {
       },
     ];
 
-    // Compute comfortable bottom spacing that settles well on devices with/without gesture bar
+    // Pop offset for the magnetic dock active tab (rises up above dock)
+    final double popOffset = 12.0 * scale;
+    final double dockHeight = 66.0 * scale;
+
+    // Bottom margin that sits nicely on gesture-bar and button-nav devices
     final double bottomMargin = bottomInset > 0
-        ? (bottomInset * 0.4).clamp(6.0, 16.0) * scale
-        : 14.0 * scale;
+        ? (bottomInset * 0.35).clamp(6.0, 14.0) * scale
+        : 12.0 * scale;
 
     return SafeArea(
       top: false,
@@ -51,103 +55,136 @@ class BottomNavBar extends StatelessWidget {
         heightFactor: 1.0,
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 440 * scale,
+            maxWidth: 420 * scale,
           ),
           child: Container(
             margin: EdgeInsets.only(
-              left: 18 * scale,
-              right: 18 * scale,
+              left: 20 * scale,
+              right: 20 * scale,
               bottom: bottomMargin,
-              top: 4 * scale,
+              top: popOffset + (2 * scale),
             ),
-            padding: EdgeInsets.symmetric(
-              horizontal: 10 * scale,
-              vertical: 8 * scale,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30 * scale),
-              border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.16),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 6),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
+              children: [
+                // 1. Base Magnetic Dock Bar
+                Container(
+                  height: dockHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28 * scale),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.16),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 20,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 6),
+                      ),
+                      BoxShadow(
+                        color: AppColors.orange.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
-                BoxShadow(
-                  color: AppColors.orange.withValues(alpha: 0.06),
-                  blurRadius: 10,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 2),
+
+                // 2. Interactive Navigation Items with Magnetic Pop-up
+                SizedBox(
+                  height: dockHeight,
+                  child: Row(
+                    children: List.generate(items.length, (index) {
+                      final selected = currentIndex == index;
+                      final iconData = (selected
+                          ? items[index]["activeIcon"]
+                          : items[index]["icon"]) as IconData;
+                      final label = items[index]["label"] as String;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onTap(index),
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutBack,
+                              transform: Matrix4.translationValues(
+                                0,
+                                selected ? -popOffset : 0,
+                                0,
+                              ),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: (selected ? 14 : 6) * scale,
+                                vertical: (selected ? 6 : 4) * scale,
+                              ),
+                              decoration: BoxDecoration(
+                                color: selected ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20 * scale),
+                                border: selected
+                                    ? Border.all(
+                                        color: Colors.grey.withValues(alpha: 0.16),
+                                        width: 1.2,
+                                      )
+                                    : null,
+                                boxShadow: selected
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.12),
+                                          blurRadius: 14,
+                                          spreadRadius: 1,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                        BoxShadow(
+                                          color: AppColors.orange.withValues(alpha: 0.12),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    iconData,
+                                    color: selected
+                                        ? AppColors.orange
+                                        : Colors.grey.shade600,
+                                    size: (selected ? 24 : 22) * scale,
+                                  ),
+                                  SizedBox(height: 2 * scale),
+                                  Text(
+                                    label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: (selected ? 11.5 : 11) * scale,
+                                      color: selected
+                                          ? AppColors.orange
+                                          : Colors.grey.shade600,
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      letterSpacing: selected ? 0.3 : 0.1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
               ],
-            ),
-            child: Row(
-              children: List.generate(items.length, (index) {
-                final selected = currentIndex == index;
-
-                return Expanded(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(22 * scale),
-                    onTap: () => onTap(index),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4 * scale),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: (selected ? 16 : 8) * scale,
-                              vertical: 5 * scale,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.orange.withValues(alpha: 0.12)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16 * scale),
-                            ),
-                            child: Icon(
-                              selected
-                                  ? items[index]["activeIcon"] as IconData
-                                  : items[index]["icon"] as IconData,
-                              color: selected
-                                  ? AppColors.orange
-                                  : Colors.grey.shade500,
-                              size: 24 * scale,
-                            ),
-                          ),
-                          SizedBox(height: 3 * scale),
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            style: TextStyle(
-                              fontSize: 12 * scale,
-                              color: selected
-                                  ? AppColors.orange
-                                  : Colors.grey.shade600,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              letterSpacing: selected ? 0.3 : 0.1,
-                            ),
-                            child: Text(
-                              items[index]["label"] as String,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }),
             ),
           ),
         ),
