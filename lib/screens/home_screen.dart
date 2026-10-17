@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import '../services/mqtt_service.dart';
+import '../services/notification_service.dart';
+import '../models/notification_model.dart';
 
 /// Current operating state of the robot. Drives the ONLINE/OFFLINE
 /// pill on the status card and which SnackBar message is shown.
@@ -40,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _mqttSub = MQTTService.instance.onMessage.listen((msg) {
       if (!mounted) return;
       final payload = msg.payload.toUpperCase().trim();
+      final prevState = robotState;
       setState(() {
         if (payload.contains('OFFLINE') || payload.contains('DISCONNECT')) {
           robotState = RobotState.offline;
@@ -51,6 +54,28 @@ class _HomeScreenState extends State<HomeScreen> {
           robotState = RobotState.stopped;
         }
       });
+
+      if (prevState != robotState) {
+        if (robotState == RobotState.online && prevState != RobotState.online) {
+          NotificationService().addNotification(
+            title: 'Robot Started',
+            message: 'Robot cleaning operation is now active.',
+            type: NotificationType.success,
+          );
+        } else if (robotState == RobotState.stopped && prevState == RobotState.online) {
+          NotificationService().addNotification(
+            title: 'Robot Stopped',
+            message: 'Robot cleaning operation was stopped.',
+            type: NotificationType.warning,
+          );
+        } else if (robotState == RobotState.offline && prevState != RobotState.offline) {
+          NotificationService().addNotification(
+            title: 'Robot Offline',
+            message: 'Robot has lost connection and is now offline.',
+            type: NotificationType.error,
+          );
+        }
+      }
     });
   }
 
@@ -112,6 +137,12 @@ class _HomeScreenState extends State<HomeScreen> {
     MQTTService.instance.publishToAll('ON');
     setState(() { robotState = RobotState.online; });
     _showFeedback('Robot Started', AppColors.orange);
+
+    NotificationService().addNotification(
+      title: 'Robot Started',
+      message: 'Robot cleaning operation has been started.',
+      type: NotificationType.success,
+    );
   }
 
   void _onStop() {
@@ -122,6 +153,12 @@ class _HomeScreenState extends State<HomeScreen> {
     MQTTService.instance.publishToAll('OFF');
     setState(() { robotState = RobotState.stopped; });
     _showFeedback('Robot Stopped', AppColors.navy);
+
+    NotificationService().addNotification(
+      title: 'Robot Stopped',
+      message: 'Robot cleaning operation has been stopped.',
+      type: NotificationType.warning,
+    );
   }
 
   @override
@@ -201,27 +238,40 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: Padding(
               padding: EdgeInsets.all(10 * scale),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 24 * scale,
-                    color: Colors.black87,
-                  ),
-                  Positioned(
-                    right: -1 * scale,
-                    top: -1 * scale,
-                    child: Container(
-                      width: 9 * scale,
-                      height: 9 * scale,
-                      decoration: const BoxDecoration(
-                        color: AppColors.orange,
-                        shape: BoxShape.circle,
+              child: ListenableBuilder(
+                listenable: NotificationService(),
+                builder: (context, _) {
+                  final hasUnread = NotificationService().unreadCount > 0;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        hasUnread
+                            ? Icons.notifications_active_outlined
+                            : Icons.notifications_none,
+                        size: 24 * scale,
+                        color: Colors.black87,
                       ),
-                    ),
-                  ),
-                ],
+                      if (hasUnread)
+                        Positioned(
+                          right: -1 * scale,
+                          top: -1 * scale,
+                          child: Container(
+                            width: 9 * scale,
+                            height: 9 * scale,
+                            decoration: BoxDecoration(
+                              color: AppColors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -244,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withOpacity(.35),
+            color: AppColors.orange.withValues(alpha: .35),
             blurRadius: 22,
             offset: const Offset(0, 12),
           ),
@@ -341,13 +391,13 @@ class _HomeScreenState extends State<HomeScreen> {
           // (and register it under `flutter: assets:` in pubspec.yaml).
           return Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.15),
+              color: Colors.white.withValues(alpha: .15),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               Icons.smart_toy,
               size: 72 * scale,
-              color: Colors.white.withOpacity(.9),
+              color: Colors.white.withValues(alpha: .9),
             ),
           );
         },
@@ -478,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(.85),
+                        color: Colors.white.withValues(alpha: .85),
                         fontSize: 12.5 * scale,
                       ),
                     ),

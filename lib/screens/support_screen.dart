@@ -6,6 +6,7 @@ import 'notification_screen.dart';
 import 'login_screen.dart';
 import '../utils/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../services/notification_service.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -609,27 +610,40 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             child: Padding(
               padding: EdgeInsets.all(10 * scale),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 24 * scale,
-                    color: Colors.black87,
-                  ),
-                  Positioned(
-                    right: -1 * scale,
-                    top: -1 * scale,
-                    child: Container(
-                      width: 9 * scale,
-                      height: 9 * scale,
-                      decoration: const BoxDecoration(
-                        color: AppColors.orange,
-                        shape: BoxShape.circle,
+              child: ListenableBuilder(
+                listenable: NotificationService(),
+                builder: (context, _) {
+                  final hasUnread = NotificationService().unreadCount > 0;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        hasUnread
+                            ? Icons.notifications_active_outlined
+                            : Icons.notifications_none,
+                        size: 24 * scale,
+                        color: Colors.black87,
                       ),
-                    ),
-                  ),
-                ],
+                      if (hasUnread)
+                        Positioned(
+                          right: -1 * scale,
+                          top: -1 * scale,
+                          child: Container(
+                            width: 9 * scale,
+                            height: 9 * scale,
+                            decoration: BoxDecoration(
+                              color: AppColors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
