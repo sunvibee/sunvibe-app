@@ -113,7 +113,7 @@ class BottomNavBar extends StatelessWidget {
                           child: Center(
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 260),
-                              curve: Curves.easeOutBack,
+                              curve: Curves.easeOutCubic,
                               transform: Matrix4.translationValues(
                                 0,
                                 selected ? -popOffset : 0,
@@ -126,27 +126,29 @@ class BottomNavBar extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: selected ? Colors.white : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20 * scale),
-                                border: selected
-                                    ? Border.all(
-                                        color: Colors.grey.withValues(alpha: 0.16),
-                                        width: 1.2,
-                                      )
-                                    : null,
-                                boxShadow: selected
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.12),
-                                          blurRadius: 14,
-                                          spreadRadius: 1,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                        BoxShadow(
-                                          color: AppColors.orange.withValues(alpha: 0.12),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
+                                border: Border.all(
+                                  color: selected
+                                      ? Colors.grey.withValues(alpha: 0.16)
+                                      : Colors.transparent,
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: selected
+                                        ? Colors.black.withValues(alpha: 0.12)
+                                        : Colors.transparent,
+                                    blurRadius: 14,
+                                    spreadRadius: selected ? 1 : 0,
+                                    offset: selected ? const Offset(0, 4) : Offset.zero,
+                                  ),
+                                  BoxShadow(
+                                    color: selected
+                                        ? AppColors.orange.withValues(alpha: 0.12)
+                                        : Colors.transparent,
+                                    blurRadius: 8,
+                                    offset: selected ? const Offset(0, 2) : Offset.zero,
+                                  ),
+                                ],
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
