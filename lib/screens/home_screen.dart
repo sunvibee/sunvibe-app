@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
+import 'cleaning_history_screen.dart';
 import '../services/mqtt_service.dart';
 import '../services/notification_service.dart';
+import '../services/robot_timer_service.dart';
 import '../models/notification_model.dart';
 
-/// Current operating state of the robot. Drives the ONLINE/OFFLINE
-/// pill on the status card and which SnackBar message is shown.
+/// Current operating state of the robot. Drives the RUNNING/STOPPED
+/// indicator on the status card and which feedback message is shown.
 enum RobotState { offline, online, stopped, resumed, emergencyStopped }
 
 class HomeScreen extends StatefulWidget {
@@ -17,16 +19,28 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   StreamSubscription<bool>? _statusSub;
   StreamSubscription<MqttMessage>? _mqttSub;
   RobotState robotState = RobotState.offline;
+
+  late AnimationController _clockAnimController;
 
   @override
   void initState() {
     super.initState();
     final connected = MQTTService.instance.isConnected;
     robotState = connected ? RobotState.stopped : RobotState.offline;
+
+    _clockAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    );
+
+    if (RobotTimerService().isRunning) {
+      _clockAnimController.repeat();
+    }
 
     _statusSub = MQTTService.instance.onConnectionStatus.listen((connected) {
       if (!mounted) return;
@@ -46,7 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         if (payload.contains('OFFLINE') || payload.contains('DISCONNECT')) {
           robotState = RobotState.offline;
-        } else if (payload.contains('ON') || payload.contains('RUN') || payload.contains('START')) {
+        } else if (payload.contains('ON') ||
+            payload.contains('RUN') ||
+            payload.contains('START')) {
           robotState = RobotState.online;
         } else if (payload.contains('OFF') || payload.contains('STOP')) {
           robotState = RobotState.stopped;
@@ -57,18 +73,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (prevState != robotState) {
         if (robotState == RobotState.online && prevState != RobotState.online) {
+          final timer = RobotTimerService();
+          if (!timer.isRunning) {
+            timer.start();
+          }
+          _clockAnimController.repeat();
+
+          final startTimeStr = timer.formattedStartTime;
+          final startTimestamp = timer.startTime ?? DateTime.now();
           NotificationService().addNotification(
             title: 'Robot Started',
-            message: 'Robot cleaning operation is now active.',
+            message: 'Robot cleaning operation started at $startTimeStr.',
             type: NotificationType.success,
+            timestamp: startTimestamp,
           );
-        } else if (robotState == RobotState.stopped && prevState == RobotState.online) {
+        } else if (robotState == RobotState.stopped &&
+            prevState == RobotState.online) {
+          _clockAnimController.stop();
+
+          final timer = RobotTimerService();
+          final startTimeStr = timer.formattedStartTime;
+          final startTimestamp = timer.startTime ??
+              DateTime.now().subtract(const Duration(seconds: 1));
+          timer.stop();
+          final elapsedStr = timer.formattedElapsed;
+          final stopTimeStr = timer.formattedStopTime;
+
+          var stopTimestamp = timer.stopTime ?? DateTime.now();
+          if (!stopTimestamp
+              .isAfter(startTimestamp.add(const Duration(milliseconds: 2)))) {
+            stopTimestamp = startTimestamp.add(const Duration(milliseconds: 2));
+          }
+          final runtimeTimestamp =
+              stopTimestamp.subtract(const Duration(milliseconds: 1));
+
+          // Notification 2: Robot Run Time (between Start and Stop)
+          NotificationService().addNotification(
+            title: 'Robot Run Time',
+            message:
+                'Total Cleaning Time: $elapsedStr ($startTimeStr - $stopTimeStr).',
+            type: NotificationType.info,
+            timestamp: runtimeTimestamp,
+          );
+
+          // Notification 3: Robot Stopped
           NotificationService().addNotification(
             title: 'Robot Stopped',
-            message: 'Robot cleaning operation was stopped.',
+            message: 'Robot cleaning operation stopped at $stopTimeStr.',
             type: NotificationType.warning,
+            timestamp: stopTimestamp,
           );
-        } else if (robotState == RobotState.offline && prevState != RobotState.offline) {
+        } else if (robotState == RobotState.offline &&
+            prevState != RobotState.offline) {
+          if (RobotTimerService().isRunning) {
+            _clockAnimController.stop();
+            RobotTimerService().stop();
+          }
           NotificationService().addNotification(
             title: 'Robot Offline',
             message: 'Robot has lost connection and is now offline.',
@@ -83,38 +143,34 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _statusSub?.cancel();
     _mqttSub?.cancel();
+    _clockAnimController.dispose();
     super.dispose();
   }
 
-  // Simple responsive scale based on screen width.
-  // 375 = standard reference width (iPhone-ish). Clamped so text/icons
-  // never blow up or shrink too far on very large/small screens.
   double _scale(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return (width / 375).clamp(0.85, 1.3);
   }
 
   bool get _isOnline =>
-      MQTTService.instance.isConnected &&
-      (robotState == RobotState.online || robotState == RobotState.resumed);
+      robotState == RobotState.online || robotState == RobotState.resumed;
 
   String get _statusLabel {
-    if (!MQTTService.instance.isConnected) return "OFFLINE";
-    switch (robotState) {
-      case RobotState.offline:
-        return "OFFLINE";
-      case RobotState.online:
-        return "ONLINE";
-      case RobotState.resumed:
-        return "ONLINE";
-      case RobotState.stopped:
-        return "STOPPED";
-      case RobotState.emergencyStopped:
-        return "E-STOP";
-    }
+    if (_isOnline) return "RUNNING";
+    if (robotState == RobotState.offline) return "OFFLINE";
+    return "STOPPED";
   }
 
-  Color get _statusColor => _isOnline ? AppColors.green : Colors.red;
+  Color get _statusDotColor =>
+      _isOnline ? AppColors.green : AppColors.red;
+
+  bool get _isConnected => MQTTService.instance.isConnected;
+
+  String get _connectionLabel =>
+      _isConnected ? "MQTT Connected" : "Local Mode";
+
+  Color get _connectionDotColor =>
+      _isConnected ? AppColors.green : Colors.grey.shade500;
 
   void _showFeedback(String message, Color color) {
     ScaffoldMessenger.of(context)
@@ -136,6 +192,16 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       robotState = RobotState.online;
     });
+
+    final timer = RobotTimerService();
+    if (!timer.isRunning) {
+      timer.start();
+    }
+    _clockAnimController.repeat();
+
+    final startTimeStr = timer.formattedStartTime;
+    final startTimestamp = timer.startTime ?? DateTime.now();
+
     _showFeedback(
       MQTTService.instance.isConnected
           ? 'Robot Started'
@@ -145,8 +211,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     NotificationService().addNotification(
       title: 'Robot Started',
-      message: 'Robot cleaning operation has been started.',
+      message: 'Robot cleaning operation started at $startTimeStr.',
       type: NotificationType.success,
+      timestamp: startTimestamp,
     );
   }
 
@@ -157,70 +224,75 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       robotState = RobotState.stopped;
     });
+
+    _clockAnimController.stop();
+
+    final timer = RobotTimerService();
+    final startTimeStr = timer.formattedStartTime;
+    final startTimestamp = timer.startTime ??
+        DateTime.now().subtract(const Duration(seconds: 1));
+    timer.stop();
+    final elapsedStr = timer.formattedElapsed;
+    final stopTimeStr = timer.formattedStopTime;
+
     _showFeedback('Robot Stopped', AppColors.navy);
 
+    var stopTimestamp = timer.stopTime ?? DateTime.now();
+    if (!stopTimestamp
+        .isAfter(startTimestamp.add(const Duration(milliseconds: 2)))) {
+      stopTimestamp = startTimestamp.add(const Duration(milliseconds: 2));
+    }
+    final runtimeTimestamp =
+        stopTimestamp.subtract(const Duration(milliseconds: 1));
+
+    // Notification 2: Robot Run Time (in between Start and Stop)
+    NotificationService().addNotification(
+      title: 'Robot Run Time',
+      message:
+          'Total Cleaning Time: $elapsedStr ($startTimeStr - $stopTimeStr).',
+      type: NotificationType.info,
+      timestamp: runtimeTimestamp,
+    );
+
+    // Notification 3: Robot Stopped
     NotificationService().addNotification(
       title: 'Robot Stopped',
-      message: 'Robot cleaning operation has been stopped.',
+      message: 'Robot cleaning operation stopped at $stopTimeStr.',
       type: NotificationType.warning,
+      timestamp: stopTimestamp,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final scale = _scale(context);
-    final horizontalPadding = (20 * scale).clamp(16, 30).toDouble();
+    final horizontalPadding = (20 * scale).clamp(16, 28).toDouble();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                18 * scale,
-                horizontalPadding,
-                0,
-              ),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - (20 * scale),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(scale),
-                        SizedBox(height: 20 * scale),
-                        _buildRobotStatusCard(scale),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 20 * scale),
-                        Text(
-                          "Robot Controls",
-                          style: TextStyle(
-                            fontSize: 22 * scale,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        SizedBox(height: 14 * scale),
-                        _buildControlsGrid(scale),
-                        SizedBox(height: 14 * scale),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            16 * scale,
+            horizontalPadding,
+            24 * scale,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(scale),
+              SizedBox(height: 14 * scale),
+              _buildRobotStatusCard(scale),
+              SizedBox(height: 12 * scale),
+              _buildStatusAndConnectionCard(scale),
+              SizedBox(height: 12 * scale),
+              _buildCleaningTimeCard(scale),
+              SizedBox(height: 14 * scale),
+              _buildControlsGrid(scale),
+            ],
+          ),
         ),
       ),
     );
@@ -305,216 +377,223 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Hero Robot Status Card ----------------
+  //---------------- Pure Hero Photograph Card ----------------
   Widget _buildRobotStatusCard(double scale) {
     return Container(
       width: double.infinity,
-      height: 290 * scale,
+      height: 205 * scale,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28 * scale),
+        borderRadius: BorderRadius.circular(24 * scale),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: _statusColor.withValues(alpha: 0.12),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28 * scale),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // 1. Hero Photograph Background
-            Image.asset(
-              'assets/images/robot_hero.jpg',
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.orange, AppColors.orangeDark],
-                  ),
-                ),
-                child: Center(
-                  child: Icon(Icons.smart_toy, size: 72 * scale, color: Colors.white),
-                ),
+        borderRadius: BorderRadius.circular(24 * scale),
+        child: Image.asset(
+          'assets/images/robot_hero.jpg',
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.orange, AppColors.orangeDark],
               ),
             ),
-
-            // 2. High-contrast Gradient Overlay
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.55),
-                    Colors.black.withValues(alpha: 0.15),
-                    Colors.black.withValues(alpha: 0.85),
-                  ],
-                  stops: const [0.0, 0.45, 1.0],
-                ),
+            child: Center(
+              child: Icon(
+                Icons.smart_toy,
+                size: 64 * scale,
+                color: Colors.white,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
 
-            // 3. Card Content (Title, Status Pill, Operating State)
-            Padding(
-              padding: EdgeInsets.all(20 * scale),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Top Row: Tag / Label + Dynamic Status Pill
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12 * scale,
-                          vertical: 6 * scale,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(14 * scale),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.solar_power_rounded,
-                              color: AppColors.orange,
-                              size: 16 * scale,
-                            ),
-                            SizedBox(width: 6 * scale),
-                            Text(
-                              "Solar Cleaner",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13 * scale,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _statusPill(scale),
-                    ],
+  //---------------- Status & Connection Bar Card ----------------
+  Widget _buildStatusAndConnectionCard(double scale) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: 16 * scale,
+        vertical: 13 * scale,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20 * scale),
+        border: Border.all(
+          color: Colors.grey.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left: Robot Status
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 42 * scale,
+                  height: 42 * scale,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(13 * scale),
                   ),
-
-                  // Bottom Info
-                  Column(
+                  child: Center(
+                    child: Icon(
+                      Icons.solar_power_rounded,
+                      color: AppColors.orange,
+                      size: 22 * scale,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10 * scale),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _isOnline
-                            ? "Cleaning Operation Active"
-                            : (robotState == RobotState.stopped
-                                ? "Standby • Ready to Clean"
-                                : "Robot System Offline"),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        "Status",
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18 * scale,
-                          fontWeight: FontWeight.bold,
-                          shadows: const [
-                            Shadow(color: Colors.black87, blurRadius: 6),
-                          ],
+                          fontSize: 11.5 * scale,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
                         ),
                       ),
-                      SizedBox(height: 5 * scale),
+                      SizedBox(height: 2 * scale),
                       Row(
                         children: [
                           Container(
                             width: 8 * scale,
                             height: 8 * scale,
                             decoration: BoxDecoration(
-                              color: _statusColor,
+                              color: _statusDotColor,
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _statusDotColor.withValues(alpha: 0.4),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
                           ),
                           SizedBox(width: 6 * scale),
-                          Text(
-                            MQTTService.instance.isConnected
-                                ? "MQTT Connected • Real-time telemetry"
-                                : "Local / Standalone Mode",
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.90),
-                              fontSize: 12 * scale,
-                              fontWeight: FontWeight.w400,
+                          Expanded(
+                            child: Text(
+                              _statusLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5 * scale,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.black87,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _statusPill(double scale) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 14 * scale,
-        vertical: 7 * scale,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(16 * scale),
-        border: Border.all(
-          color: _statusColor.withValues(alpha: 0.65),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _statusColor.withValues(alpha: 0.25),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10 * scale,
-            height: 10 * scale,
-            decoration: BoxDecoration(
-              color: _statusColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: _statusColor,
-                  blurRadius: 4,
-                  spreadRadius: 1,
                 ),
               ],
             ),
           ),
-          SizedBox(width: 8 * scale),
-          Text(
-            _statusLabel,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13.5 * scale,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
+
+          // Center Divider
+          Container(
+            height: 38 * scale,
+            width: 1,
+            color: Colors.grey.withValues(alpha: 0.2),
+            margin: EdgeInsets.symmetric(horizontal: 10 * scale),
+          ),
+
+          // Right: Connection
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 42 * scale,
+                  height: 42 * scale,
+                  decoration: BoxDecoration(
+                    color: AppColors.navy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(13 * scale),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.wifi_rounded,
+                      color: AppColors.navy,
+                      size: 22 * scale,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10 * scale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Connection",
+                        style: TextStyle(
+                          fontSize: 11.5 * scale,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      SizedBox(height: 2 * scale),
+                      Row(
+                        children: [
+                          Container(
+                            width: 8 * scale,
+                            height: 8 * scale,
+                            decoration: BoxDecoration(
+                              color: _connectionDotColor,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      _connectionDotColor.withValues(alpha: 0.4),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 6 * scale),
+                          Expanded(
+                            child: Text(
+                              _connectionLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13 * scale,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -522,85 +601,256 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  //---------------- Controls Grid ----------------
-  Widget _buildControlsGrid(double scale) {
-    return Row(
-      children: [
-        Expanded(
-          child: _controlCard(
-            scale: scale,
-            icon: Icons.play_arrow_rounded,
-            title: "Start Cleaning",
-            subtitle: "Begin Operation",
-            background: AppColors.orange,
-            onTap: _onStart,
-          ),
-        ),
-        SizedBox(width: 14 * scale),
-        Expanded(
-          child: _controlCard(
-            scale: scale,
-            icon: Icons.stop_rounded,
-            title: "Stop Cleaning",
-            subtitle: "Stop Operation",
-            background: AppColors.navy,
-            onTap: _onStop,
-          ),
-        ),
-      ],
-    );
-  }
+  //---------------- Cleaning Time & History Card ----------------
+  Widget _buildCleaningTimeCard(double scale) {
+    return ListenableBuilder(
+      listenable: RobotTimerService(),
+      builder: (context, _) {
+        final timer = RobotTimerService();
+        final isRunning = timer.isRunning;
+        final elapsedStr = timer.formattedElapsed; // 00:00:00
 
-  Widget _controlCard({
-    required double scale,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color background,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(22),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          constraints: BoxConstraints(minHeight: 108 * scale),
-          padding: EdgeInsets.all(16 * scale),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 22 * scale,
-                backgroundColor: Colors.white,
-                child: Icon(icon, color: background, size: 24 * scale),
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: 14 * scale,
+            vertical: 14 * scale,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20 * scale),
+            border: Border.all(
+              color: isRunning
+                  ? AppColors.orange.withValues(alpha: 0.50)
+                  : Colors.grey.withValues(alpha: 0.16),
+              width: isRunning ? 1.5 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isRunning
+                    ? AppColors.orange.withValues(alpha: 0.10)
+                    : Colors.black.withValues(alpha: 0.04),
+                blurRadius: isRunning ? 16 : 10,
+                offset: const Offset(0, 4),
               ),
-              SizedBox(width: 12 * scale),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17 * scale,
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Animated Clock Icon with Sweeping Arc
+                  SizedBox(
+                    width: 50 * scale,
+                    height: 50 * scale,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        RotationTransition(
+                          turns: _clockAnimController,
+                          child: CustomPaint(
+                            size: Size(48 * scale, 48 * scale),
+                            painter: _ClockArcPainter(
+                              sweepAngle: 2.1,
+                              color: isRunning
+                                  ? AppColors.orange
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 32 * scale,
+                          height: 32 * scale,
+                          decoration: BoxDecoration(
+                            color: isRunning
+                                ? AppColors.orange
+                                : AppColors.navy.withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isRunning
+                                        ? AppColors.orange
+                                        : AppColors.navy)
+                                    .withValues(alpha: 0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.access_time_filled_rounded,
+                              color: Colors.white,
+                              size: 19 * scale,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(width: 12 * scale),
+
+                  // Center: Cleaning Time & Digits
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Cleaning Time",
+                          style: TextStyle(
+                            fontSize: 12 * scale,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        SizedBox(height: 1 * scale),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            elapsedStr,
+                            style: TextStyle(
+                              fontSize: 27 * scale,
+                              fontWeight: FontWeight.w900,
+                              fontFamily: 'monospace',
+                              color: isRunning
+                                  ? AppColors.orange
+                                  : AppColors.navy,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 2 * scale),
+                        Text(
+                          "Hours   |   Minutes   |   Seconds",
+                          style: TextStyle(
+                            fontSize: 9.5 * scale,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade400,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Vertical Divider
+                  Container(
+                    height: 48 * scale,
+                    width: 1,
+                    color: Colors.grey.withValues(alpha: 0.2),
+                    margin: EdgeInsets.symmetric(horizontal: 8 * scale),
+                  ),
+
+                  // Right: History Button
+                  Material(
+                    color: const Color(0xFFF7F8FA),
+                    borderRadius: BorderRadius.circular(14 * scale),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14 * scale),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CleaningHistoryScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10 * scale,
+                          vertical: 9 * scale,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14 * scale),
+                          border: Border.all(
+                            color: Colors.grey.withValues(alpha: 0.18),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(4 * scale),
+                              decoration: BoxDecoration(
+                                color: AppColors.orange.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.history_rounded,
+                                color: AppColors.orange,
+                                size: 16 * scale,
+                              ),
+                            ),
+                            SizedBox(width: 6 * scale),
+                            Text(
+                              "History",
+                              style: TextStyle(
+                                fontSize: 13 * scale,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            SizedBox(width: 2 * scale),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 17 * scale,
+                              color: Colors.grey.shade600,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    SizedBox(height: 3 * scale),
+                  ),
+                ],
+              ),
+
+              // Bottom timeline synced with mobile clock
+              SizedBox(height: 10 * scale),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 10 * scale,
+                  vertical: 6 * scale,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(10 * scale),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 13 * scale,
+                      color: AppColors.orange,
+                    ),
+                    SizedBox(width: 5 * scale),
                     Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      "Start: ${timer.formattedStartTime}",
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: .85),
-                        fontSize: 12.5 * scale,
+                        fontSize: 11 * scale,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    Text(
+                      "  •  ",
+                      style: TextStyle(
+                        fontSize: 11 * scale,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                    Text(
+                      "Stop: ${timer.formattedStopTime}",
+                      style: TextStyle(
+                        fontSize: 11 * scale,
+                        fontWeight: FontWeight.w600,
+                        color: isRunning ? AppColors.orange : Colors.grey.shade700,
                       ),
                     ),
                   ],
@@ -608,8 +858,187 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  //---------------- Control Buttons (Start & Stop) ----------------
+  Widget _buildControlsGrid(double scale) {
+    return Row(
+      children: [
+        // Start Cleaning Button
+        Expanded(
+          child: Material(
+            borderRadius: BorderRadius.circular(20 * scale),
+            elevation: 2,
+            shadowColor: AppColors.orange.withValues(alpha: 0.3),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFFF7A00), Color(0xFFFF4800)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20 * scale),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20 * scale),
+                onTap: _onStart,
+                child: Container(
+                  constraints: BoxConstraints(minHeight: 76 * scale),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12 * scale,
+                    vertical: 12 * scale,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 38 * scale,
+                        height: 38 * scale,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.play_arrow_rounded,
+                            color: AppColors.orange,
+                            size: 24 * scale,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10 * scale),
+                      Flexible(
+                        child: Text(
+                          "Start Cleaning",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15.5 * scale,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        SizedBox(width: 12 * scale),
+
+        // Stop Cleaning Button
+        Expanded(
+          child: Material(
+            borderRadius: BorderRadius.circular(20 * scale),
+            elevation: 2,
+            shadowColor: Colors.black.withValues(alpha: 0.2),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF242B38), Color(0xFF141A24)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20 * scale),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20 * scale),
+                onTap: _onStop,
+                child: Container(
+                  constraints: BoxConstraints(minHeight: 76 * scale),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12 * scale,
+                    vertical: 12 * scale,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 38 * scale,
+                        height: 38 * scale,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.stop_rounded,
+                            color: AppColors.navy,
+                            size: 22 * scale,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 10 * scale),
+                      Flexible(
+                        child: Text(
+                          "Stop Cleaning",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15.5 * scale,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Custom painter for the animated sweeping arc around the clock dial
+class _ClockArcPainter extends CustomPainter {
+  final double sweepAngle;
+  final Color color;
+
+  _ClockArcPainter({
+    required this.sweepAngle,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - 2;
+
+    // Faint circular track
+    final trackPaint = Paint()
+      ..color = color.withValues(alpha: 0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Active arc
+    final arcPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -1.5708, // Start at 12 o'clock (-pi/2)
+      sweepAngle,
+      false,
+      arcPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClockArcPainter oldDelegate) {
+    return oldDelegate.sweepAngle != sweepAngle || oldDelegate.color != color;
   }
 }

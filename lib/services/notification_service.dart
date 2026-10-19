@@ -103,28 +103,32 @@ class NotificationService extends ChangeNotifier {
     NotificationType type = NotificationType.info,
     String? robotId,
     bool showSystemNotification = true,
+    DateTime? timestamp,
   }) async {
+    final effectiveTimestamp = timestamp ?? DateTime.now();
+
     // Debounce duplicate notifications within 1 second
     if (_notifications.isNotEmpty) {
       final latest = _notifications.first;
       if (latest.title == title &&
           latest.message == message &&
-          DateTime.now().difference(latest.timestamp).inSeconds < 1) {
+          effectiveTimestamp.difference(latest.timestamp).abs().inSeconds < 1) {
         return;
       }
     }
 
     final item = NotificationItem(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '${effectiveTimestamp.millisecondsSinceEpoch}_${title.hashCode.abs()}',
       title: title,
       message: message,
-      timestamp: DateTime.now(),
+      timestamp: effectiveTimestamp,
       isRead: false,
       type: type,
       robotId: robotId,
     );
 
     _notifications.insert(0, item);
+    _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     await _saveNotifications();
     notifyListeners();
 

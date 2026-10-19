@@ -258,19 +258,23 @@ void main() {
       await tester.ensureVisible(find.text('Start Cleaning'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Start Cleaning'));
-      await tester.pumpAndSettle();
+      // Clock animation controller repeats while running, so pump frame with duration
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(service.totalCount, 1);
       expect(service.notifications.first.title, 'Robot Started');
 
       // Ensure Stop Cleaning is visible and tap
       await tester.ensureVisible(find.text('Stop Cleaning'));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.text('Stop Cleaning'));
       await tester.pumpAndSettle();
 
-      expect(service.totalCount, 2);
-      expect(service.notifications.first.title, 'Robot Stopped');
+      // On stop, 3 notifications exist: Robot Stopped, Robot Run Time, Robot Started
+      expect(service.totalCount, 3);
+      expect(service.notifications[0].title, 'Robot Stopped');
+      expect(service.notifications[1].title, 'Robot Run Time');
+      expect(service.notifications[2].title, 'Robot Started');
     });
   });
 }

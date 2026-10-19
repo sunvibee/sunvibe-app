@@ -510,7 +510,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     required NotificationItem item,
     required bool isSelected,
   }) {
-    final color = _getNotificationColor(item.type);
+    final color = _getNotificationColor(item.type, title: item.title);
     final icon = _getNotificationIcon(item.type, item.title);
     final isUnread = !item.isRead;
 
@@ -825,7 +825,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Color _getNotificationColor(NotificationType type) {
+  Color _getNotificationColor(NotificationType type, {String? title}) {
+    if (title != null) {
+      final lower = title.toLowerCase();
+      if (lower.contains('run time') || lower.contains('runtime') || lower.contains('clock')) {
+        return const Color(0xFF1E40AF); // Sleek deep royal blue for runtime
+      }
+    }
     switch (type) {
       case NotificationType.info:
         return AppColors.blue;
@@ -840,7 +846,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _getNotificationIcon(NotificationType type, String title) {
     final lowerTitle = title.toLowerCase();
-    if (lowerTitle.contains('start') || lowerTitle.contains('run')) {
+    if (lowerTitle.contains('run time') ||
+        lowerTitle.contains('runtime') ||
+        lowerTitle.contains('clock') ||
+        lowerTitle.contains('stopwatch')) {
+      return Icons.timer_outlined;
+    } else if (lowerTitle.contains('start') || lowerTitle.contains('run')) {
       return Icons.play_arrow_rounded;
     } else if (lowerTitle.contains('stop') || lowerTitle.contains('halt')) {
       return Icons.stop_rounded;
