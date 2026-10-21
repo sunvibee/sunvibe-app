@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import 'cleaning_history_screen.dart';
+import 'main_navigation_screen.dart';
 import '../services/mqtt_service.dart';
 import '../services/notification_service.dart';
 import '../services/robot_timer_service.dart';
@@ -22,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   StreamSubscription<bool>? _statusSub;
+  StreamSubscription<bool>? _robotOnlineSub;
   StreamSubscription<MqttMessage>? _mqttSub;
   RobotState robotState = RobotState.offline;
 
@@ -30,8 +32,8 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    final connected = MQTTService.instance.isConnected;
-    robotState = connected ? RobotState.stopped : RobotState.offline;
+    final isOnline = MQTTService.instance.isRobotOnline;
+    robotState = isOnline ? RobotState.stopped : RobotState.offline;
 
     _clockAnimController = AnimationController(
       vsync: this,
@@ -46,6 +48,25 @@ class _HomeScreenState extends State<HomeScreen>
       if (!mounted) return;
       setState(() {
         if (!connected) {
+          if (robotState == RobotState.online) {
+            _clockAnimController.stop();
+            RobotTimerService().stop();
+          }
+          robotState = RobotState.offline;
+        } else if (MQTTService.instance.isRobotOnline && robotState == RobotState.offline) {
+          robotState = RobotState.stopped;
+        }
+      });
+    });
+
+    _robotOnlineSub = MQTTService.instance.onRobotOnlineStatus.listen((isOnline) {
+      if (!mounted) return;
+      setState(() {
+        if (!isOnline) {
+          if (robotState == RobotState.online || robotState == RobotState.resumed) {
+            _clockAnimController.stop();
+            RobotTimerService().stop();
+          }
           robotState = RobotState.offline;
         } else if (robotState == RobotState.offline) {
           robotState = RobotState.stopped;
@@ -142,6 +163,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _statusSub?.cancel();
+    _robotOnlineSub?.cancel();
     _mqttSub?.cancel();
     _clockAnimController.dispose();
     super.dispose();
@@ -153,21 +175,24 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   bool get _isOnline =>
-      robotState == RobotState.online || robotState == RobotState.resumed;
+      MQTTService.instance.isRobotOnline &&
+      (robotState == RobotState.online || robotState == RobotState.resumed);
 
   String get _statusLabel {
+    if (!MQTTService.instance.isRobotOnline) return "OFFLINE";
     if (_isOnline) return "RUNNING";
-    if (robotState == RobotState.offline) return "OFFLINE";
     return "STOPPED";
   }
 
-  Color get _statusDotColor =>
-      _isOnline ? AppColors.green : AppColors.red;
+  Color get _statusDotColor {
+    if (!MQTTService.instance.isRobotOnline) return AppColors.red;
+    return _isOnline ? AppColors.green : AppColors.orange;
+  }
 
   bool get _isConnected => MQTTService.instance.isConnected;
 
   String get _connectionLabel =>
-      _isConnected ? "MQTT Connected" : "Local Mode";
+      _isConnected ? "MQTT Connected" : "Disconnected";
 
   Color get _connectionDotColor =>
       _isConnected ? AppColors.green : Colors.grey.shade500;
@@ -185,10 +210,148 @@ class _HomeScreenState extends State<HomeScreen>
       );
   }
 
+  void _showProfessionalError({
+    required String title,
+    required String message,
+    required IconData icon,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final scale = _scale(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          margin: EdgeInsets.symmetric(
+            horizontal: 16 * scale,
+            vertical: 12 * scale,
+          ),
+          padding: EdgeInsets.zero,
+          duration: const Duration(seconds: 4),
+          content: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16 * scale,
+              vertical: 14 * scale,
+            ),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E232E),
+              borderRadius: BorderRadius.circular(18 * scale),
+              border: Border.all(
+                color: AppColors.red.withValues(alpha: 0.4),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40 * scale,
+                  height: 40 * scale,
+                  decoration: BoxDecoration(
+                    color: AppColors.red.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      color: const Color(0xFFFF5252),
+                      size: 22 * scale,
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12 * scale),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14 * scale,
+                        ),
+                      ),
+                      SizedBox(height: 3 * scale),
+                      Text(
+                        message,
+                        style: TextStyle(
+                          color: Colors.grey.shade300,
+                          fontSize: 12 * scale,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (actionLabel != null && onAction != null) ...[
+                  SizedBox(width: 8 * scale),
+                  TextButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      onAction();
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10 * scale,
+                        vertical: 6 * scale,
+                      ),
+                      backgroundColor: AppColors.orange.withValues(alpha: 0.18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10 * scale),
+                      ),
+                    ),
+                    child: Text(
+                      actionLabel,
+                      style: TextStyle(
+                        color: AppColors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12 * scale,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+  }
+
   void _onStart() {
-    if (MQTTService.instance.isConnected) {
-      MQTTService.instance.publishToAll('ON');
+    if (!MQTTService.instance.isConnected) {
+      _showProfessionalError(
+        title: 'Server Disconnected',
+        message:
+            'Unable to communicate with SunVibee cloud server. Please check your internet connection.',
+        icon: Icons.wifi_off_rounded,
+      );
+      return;
     }
+
+    if (!MQTTService.instance.isRobotOnline) {
+      _showProfessionalError(
+        title: 'Robot is Offline',
+        message:
+            'Robot is not connected to power supply or is offline. Please check power switch and ensure it is online on the Robot screen.',
+        icon: Icons.power_off_rounded,
+        actionLabel: 'Check Robot',
+        onAction: () => MainNavigationScreen.switchTab(context, 1),
+      );
+      return;
+    }
+
+    MQTTService.instance.publishToAll('ON');
     setState(() {
       robotState = RobotState.online;
     });
@@ -202,12 +365,7 @@ class _HomeScreenState extends State<HomeScreen>
     final startTimeStr = timer.formattedStartTime;
     final startTimestamp = timer.startTime ?? DateTime.now();
 
-    _showFeedback(
-      MQTTService.instance.isConnected
-          ? 'Robot Started'
-          : 'Robot Started (Local Mode)',
-      AppColors.orange,
-    );
+    _showFeedback('Robot Started', AppColors.orange);
 
     NotificationService().addNotification(
       title: 'Robot Started',
@@ -218,9 +376,29 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _onStop() {
-    if (MQTTService.instance.isConnected) {
-      MQTTService.instance.publishToAll('OFF');
+    if (!MQTTService.instance.isConnected) {
+      _showProfessionalError(
+        title: 'Server Disconnected',
+        message:
+            'Unable to send stop command to robot. Please check your internet connection.',
+        icon: Icons.wifi_off_rounded,
+      );
+      return;
     }
+
+    if (!MQTTService.instance.isRobotOnline && robotState != RobotState.online) {
+      _showProfessionalError(
+        title: 'Robot is Offline',
+        message:
+            'The robot is not reachable or disconnected from power supply.',
+        icon: Icons.power_off_rounded,
+        actionLabel: 'Check Robot',
+        onAction: () => MainNavigationScreen.switchTab(context, 1),
+      );
+      return;
+    }
+
+    MQTTService.instance.publishToAll('OFF');
     setState(() {
       robotState = RobotState.stopped;
     });
@@ -271,28 +449,38 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding,
-            16 * scale,
-            horizontalPadding,
-            24 * scale,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(scale),
-              SizedBox(height: 14 * scale),
-              _buildRobotStatusCard(scale),
-              SizedBox(height: 12 * scale),
-              _buildStatusAndConnectionCard(scale),
-              SizedBox(height: 12 * scale),
-              _buildCleaningTimeCard(scale),
-              SizedBox(height: 14 * scale),
-              _buildControlsGrid(scale),
-            ],
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate dynamic expanded hero image height to fill screen and pull cards down close to navbar
+            // Non-hero elements (header, status card, clock card, controls, padding & spacings) take ~345 * scale
+            final otherElementsHeight = 345.0 * scale;
+            final dynamicHeroHeight = (constraints.maxHeight - otherElementsHeight)
+                .clamp(180.0 * scale, 420.0 * scale);
+
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                12 * scale,
+                horizontalPadding,
+                10 * scale,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(scale),
+                  SizedBox(height: 10 * scale),
+                  _buildRobotStatusCard(scale, height: dynamicHeroHeight),
+                  SizedBox(height: 10 * scale),
+                  _buildStatusAndConnectionCard(scale),
+                  SizedBox(height: 10 * scale),
+                  _buildCleaningTimeCard(scale),
+                  SizedBox(height: 10 * scale),
+                  _buildControlsGrid(scale),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -378,10 +566,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   //---------------- Pure Hero Photograph Card ----------------
-  Widget _buildRobotStatusCard(double scale) {
+  Widget _buildRobotStatusCard(double scale, {double? height}) {
     return Container(
       width: double.infinity,
-      height: 205 * scale,
+      height: height ?? (240 * scale),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24 * scale),
         boxShadow: [
@@ -397,6 +585,8 @@ class _HomeScreenState extends State<HomeScreen>
         child: Image.asset(
           'assets/images/robot_hero.jpg',
           fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
           errorBuilder: (context, error, stackTrace) => Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -577,14 +767,17 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           SizedBox(width: 6 * scale),
                           Expanded(
-                            child: Text(
-                              _connectionLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13 * scale,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black87,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _connectionLabel,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontSize: 13 * scale,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black87,
+                                ),
                               ),
                             ),
                           ),
@@ -911,14 +1104,17 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       SizedBox(width: 10 * scale),
                       Flexible(
-                        child: Text(
-                          "Start Cleaning",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15.5 * scale,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Start Cleaning",
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15 * scale,
+                            ),
                           ),
                         ),
                       ),
@@ -976,14 +1172,17 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       SizedBox(width: 10 * scale),
                       Flexible(
-                        child: Text(
-                          "Stop Cleaning",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15.5 * scale,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            "Stop Cleaning",
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15 * scale,
+                            ),
                           ),
                         ),
                       ),

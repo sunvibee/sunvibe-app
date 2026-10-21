@@ -8,6 +8,7 @@ import 'package:sunvibee_app/screens/support_screen.dart';
 import 'package:sunvibee_app/screens/home_screen.dart';
 import 'package:sunvibee_app/screens/notification_screen.dart';
 import 'package:sunvibee_app/services/notification_service.dart';
+import 'package:sunvibee_app/services/mqtt_service.dart';
 import 'package:sunvibee_app/models/notification_model.dart';
 import 'package:sunvibee_app/widgets/bottom_nav_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -236,7 +237,8 @@ void main() {
       expect(find.text('All Caught Up!'), findsOneWidget);
     });
 
-    testWidgets('Tapping Start Cleaning and Stop Cleaning on HomeScreen creates live notifications', (WidgetTester tester) async {
+    testWidgets('Tapping Start Cleaning and Stop Cleaning on HomeScreen creates live notifications when online', (WidgetTester tester) async {
+      MQTTService.instance.setMockState(isConnected: true, isRobotOnline: true);
       final service = NotificationService();
       await service.clearAllNotifications();
 
@@ -275,6 +277,67 @@ void main() {
       expect(service.notifications[0].title, 'Robot Stopped');
       expect(service.notifications[1].title, 'Robot Run Time');
       expect(service.notifications[2].title, 'Robot Started');
+    });
+
+    testWidgets('Tapping Start Cleaning when robot is offline blocks operation and shows professional error', (WidgetTester tester) async {
+      MQTTService.instance.setMockState(isConnected: true, isRobotOnline: false);
+      final service = NotificationService();
+      await service.clearAllNotifications();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider.value(value: service),
+          ],
+          child: const MaterialApp(
+            home: HomeScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tap Start Cleaning while robot is offline
+      await tester.ensureVisible(find.text('Start Cleaning'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Start Cleaning'));
+      await tester.pump();
+
+      // Expect professional error snackbar with action
+      expect(find.text('Robot is Offline'), findsOneWidget);
+      expect(find.text('Check Robot'), findsOneWidget);
+      // No start notification should be recorded
+      expect(service.totalCount, 0);
+    });
+
+    testWidgets('Tapping Start Cleaning when MQTT is disconnected shows Server Disconnected error', (WidgetTester tester) async {
+      MQTTService.instance.setMockState(isConnected: false, isRobotOnline: false);
+      final service = NotificationService();
+      await service.clearAllNotifications();
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider.value(value: service),
+          ],
+          child: const MaterialApp(
+            home: HomeScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      // Tap Start Cleaning while MQTT is disconnected
+      await tester.ensureVisible(find.text('Start Cleaning'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Start Cleaning'));
+      await tester.pump();
+
+      expect(find.text('Server Disconnected'), findsOneWidget);
+      expect(service.totalCount, 0);
     });
   });
 }
