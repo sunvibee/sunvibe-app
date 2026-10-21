@@ -45,7 +45,7 @@ void main() {
     expect(session.formattedDate, 'Today');
   });
 
-  test('Notification sequence logs only Robot Started and Robot Stopped', () async {
+  test('Notification sequence logs Robot Started, Robot Run Time, and Robot Stopped', () async {
     final notificationService = NotificationService();
     final timer = RobotTimerService();
 
@@ -67,14 +67,25 @@ void main() {
     // 2. Stop Robot after brief duration
     await Future.delayed(const Duration(milliseconds: 10));
     timer.stop();
+    final elapsedStr = timer.formattedElapsed;
     final stopTimeStr = timer.formattedStopTime;
 
     var stopTimestamp = timer.stopTime ?? DateTime.now();
     if (!stopTimestamp.isAfter(startTimestamp.add(const Duration(milliseconds: 2)))) {
       stopTimestamp = startTimestamp.add(const Duration(milliseconds: 2));
     }
+    final runtimeTimestamp = stopTimestamp.subtract(const Duration(milliseconds: 1));
 
-    // Notification: Robot Stopped
+    // Notification 2: Robot Run Time (in between Start and Stop)
+    await notificationService.addNotification(
+      title: 'Robot Run Time',
+      message: 'Total Cleaning Time: $elapsedStr ($startTimeStr - $stopTimeStr).',
+      type: NotificationType.info,
+      timestamp: runtimeTimestamp,
+      showSystemNotification: false,
+    );
+
+    // Notification 3: Robot Stopped
     await notificationService.addNotification(
       title: 'Robot Stopped',
       message: 'Robot cleaning operation stopped at $stopTimeStr.',
@@ -83,16 +94,21 @@ void main() {
       showSystemNotification: false,
     );
 
-    // 3. Verify exactly 2 notifications (Start and Stop only)
+    // 3. Verify exactly 3 notifications (Start, Run Time, and Stop)
     final list = notificationService.notifications;
-    expect(list.length, 2);
+    expect(list.length, 3);
 
     // Sorted descending by timestamp:
     // list[0] = Robot Stopped (newest)
-    // list[1] = Robot Started (oldest)
+    // list[1] = Robot Run Time (middle)
+    // list[2] = Robot Started (oldest)
     expect(list[0].title, 'Robot Stopped');
-    expect(list[1].title, 'Robot Started');
+    expect(list[1].title, 'Robot Run Time');
+    expect(list[2].title, 'Robot Started');
+
+    expect(list[1].message.contains('Total Cleaning Time:'), isTrue);
     expect(list[0].message.contains(stopTimeStr), isTrue);
     expect(list[1].message.contains(startTimeStr), isTrue);
+    expect(list[1].message.contains(stopTimeStr), isTrue);
   });
 }
