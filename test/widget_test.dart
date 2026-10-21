@@ -272,11 +272,10 @@ void main() {
       await tester.tap(find.text('Stop Cleaning'));
       await tester.pumpAndSettle();
 
-      // On stop, 3 notifications exist: Robot Stopped, Robot Run Time, Robot Started
-      expect(service.totalCount, 3);
+      // On stop, exactly 2 notifications exist: Robot Stopped and Robot Started
+      expect(service.totalCount, 2);
       expect(service.notifications[0].title, 'Robot Stopped');
-      expect(service.notifications[1].title, 'Robot Run Time');
-      expect(service.notifications[2].title, 'Robot Started');
+      expect(service.notifications[1].title, 'Robot Started');
     });
 
     testWidgets('Tapping Start Cleaning when robot is offline blocks operation and shows professional error', (WidgetTester tester) async {

@@ -113,36 +113,15 @@ class _HomeScreenState extends State<HomeScreen>
           _clockAnimController.stop();
 
           final timer = RobotTimerService();
-          final startTimeStr = timer.formattedStartTime;
-          final startTimestamp = timer.startTime ??
-              DateTime.now().subtract(const Duration(seconds: 1));
           timer.stop();
-          final elapsedStr = timer.formattedElapsed;
           final stopTimeStr = timer.formattedStopTime;
 
-          var stopTimestamp = timer.stopTime ?? DateTime.now();
-          if (!stopTimestamp
-              .isAfter(startTimestamp.add(const Duration(milliseconds: 2)))) {
-            stopTimestamp = startTimestamp.add(const Duration(milliseconds: 2));
-          }
-          final runtimeTimestamp =
-              stopTimestamp.subtract(const Duration(milliseconds: 1));
-
-          // Notification 2: Robot Run Time (between Start and Stop)
-          NotificationService().addNotification(
-            title: 'Robot Run Time',
-            message:
-                'Total Cleaning Time: $elapsedStr ($startTimeStr - $stopTimeStr).',
-            type: NotificationType.info,
-            timestamp: runtimeTimestamp,
-          );
-
-          // Notification 3: Robot Stopped
+          // Notification: Robot Stopped
           NotificationService().addNotification(
             title: 'Robot Stopped',
             message: 'Robot cleaning operation stopped at $stopTimeStr.',
             type: NotificationType.warning,
-            timestamp: stopTimestamp,
+            timestamp: timer.stopTime ?? DateTime.now(),
           );
         } else if (robotState == RobotState.offline &&
             prevState != RobotState.offline) {
@@ -406,38 +385,17 @@ class _HomeScreenState extends State<HomeScreen>
     _clockAnimController.stop();
 
     final timer = RobotTimerService();
-    final startTimeStr = timer.formattedStartTime;
-    final startTimestamp = timer.startTime ??
-        DateTime.now().subtract(const Duration(seconds: 1));
     timer.stop();
-    final elapsedStr = timer.formattedElapsed;
     final stopTimeStr = timer.formattedStopTime;
 
     _showFeedback('Robot Stopped', AppColors.navy);
 
-    var stopTimestamp = timer.stopTime ?? DateTime.now();
-    if (!stopTimestamp
-        .isAfter(startTimestamp.add(const Duration(milliseconds: 2)))) {
-      stopTimestamp = startTimestamp.add(const Duration(milliseconds: 2));
-    }
-    final runtimeTimestamp =
-        stopTimestamp.subtract(const Duration(milliseconds: 1));
-
-    // Notification 2: Robot Run Time (in between Start and Stop)
-    NotificationService().addNotification(
-      title: 'Robot Run Time',
-      message:
-          'Total Cleaning Time: $elapsedStr ($startTimeStr - $stopTimeStr).',
-      type: NotificationType.info,
-      timestamp: runtimeTimestamp,
-    );
-
-    // Notification 3: Robot Stopped
+    // Notification: Robot Stopped
     NotificationService().addNotification(
       title: 'Robot Stopped',
       message: 'Robot cleaning operation stopped at $stopTimeStr.',
       type: NotificationType.warning,
-      timestamp: stopTimestamp,
+      timestamp: timer.stopTime ?? DateTime.now(),
     );
   }
 
