@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'notification_screen.dart';
 import 'login_screen.dart';
+import 'support_form_screen.dart';
 import '../utils/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../services/notification_service.dart';
@@ -290,34 +291,87 @@ class _SupportScreenState extends State<SupportScreen> {
                 ),
               ),
               SizedBox(height: 16 * scale),
-              // Close Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SupportFormScreen(
+                              initialCategory: _mapQuickHelpToCategory(title),
+                            ),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppColors.orange.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 13 * scale),
+                      ),
+                      icon: Icon(
+                        Icons.assignment_outlined,
+                        size: 16 * scale,
+                        color: AppColors.orange,
+                      ),
+                      label: Text(
+                        "Report Issue",
+                        style: TextStyle(
+                          fontSize: 13.5 * scale,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.orange,
+                        ),
+                      ),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: 14 * scale),
-                    minimumSize: Size(double.infinity, 48 * scale),
                   ),
-                  child: Text(
-                    "Got it!",
-                    style: TextStyle(
-                      fontSize: 16 * scale,
-                      fontWeight: FontWeight.w600,
+                  SizedBox(width: 10 * scale),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.orange,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 13 * scale),
+                      ),
+                      child: Text(
+                        "Got it!",
+                        style: TextStyle(
+                          fontSize: 15 * scale,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _mapQuickHelpToCategory(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('connect') || lower.contains('wifi')) {
+      return "Robot won't connect (Bluetooth / WiFi)";
+    } else if (lower.contains('stopped') || lower.contains('cleaning')) {
+      return "Cleaning stopped unexpectedly during session";
+    } else if (lower.contains('battery')) {
+      return "Battery problem / Charging dock issue";
+    }
+    return "Other issue (specify in details below)";
   }
 
   void _showFaqDialog() {
@@ -406,6 +460,90 @@ class _SupportScreenState extends State<SupportScreen> {
                       scale: scale,
                     );
                   },
+                ),
+              ),
+              SizedBox(height: 14 * scale),
+              // Technical Support Form Callout
+              Container(
+                padding: EdgeInsets.all(12 * scale),
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8 * scale),
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.assignment_late_outlined,
+                        color: AppColors.orange,
+                        size: 20 * scale,
+                      ),
+                    ),
+                    SizedBox(width: 10 * scale),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Have an error or breakdown?",
+                            style: TextStyle(
+                              fontSize: 13 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 2 * scale),
+                          Text(
+                            "Submit a technical support request for direct engineer help.",
+                            style: TextStyle(
+                              fontSize: 11.5 * scale,
+                              color: Colors.grey.shade600,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 8 * scale),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.orange,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10 * scale,
+                          vertical: 8 * scale,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupportFormScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        "Support Form",
+                        style: TextStyle(
+                          fontSize: 12 * scale,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -726,7 +864,7 @@ class _SupportScreenState extends State<SupportScreen> {
         "label": "Email Support",
         "color": AppColors.blue,
         "bgColor": const Color(0xFFE8F1FF),
-        "email": "sunvibe2024@gmail.com",
+        "email": "support@sunvibe.com",
       },
       {
         "icon": Icons.help_outline,
@@ -747,7 +885,13 @@ class _SupportScreenState extends State<SupportScreen> {
             color: Colors.black,
           ),
         ),
-        SizedBox(height: 16 * scale),
+        SizedBox(height: 14 * scale),
+
+        // Prominent Product Issue / Breakdown Support Form Card
+        _buildProductIssueCard(scale),
+        SizedBox(height: 12 * scale),
+
+        // Quick Communication: Email Support & FAQ
         Row(
           children: [
             Expanded(child: _supportCard(scale, options[0])),
@@ -756,6 +900,117 @@ class _SupportScreenState extends State<SupportScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildProductIssueCard(double scale) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SupportFormScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: EdgeInsets.all(16 * scale),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF1E2430),
+                Color(0xFF2C3545),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48 * scale,
+                height: 48 * scale,
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.assignment_late_outlined,
+                  color: AppColors.orange,
+                  size: 26 * scale,
+                ),
+              ),
+              SizedBox(width: 14 * scale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          "Support Form",
+                          style: TextStyle(
+                            fontSize: 16 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 8 * scale),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 7 * scale,
+                            vertical: 2.5 * scale,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.orange,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            "Report Issue",
+                            style: TextStyle(
+                              fontSize: 10 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4 * scale),
+                    Text(
+                      "Facing errors, malfunctions or breakdown? Contact us via support form.",
+                      style: TextStyle(
+                        fontSize: 12.5 * scale,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white70,
+                size: 16 * scale,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
