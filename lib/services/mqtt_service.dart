@@ -19,12 +19,65 @@ class MQTTService {
 
   // Tracks per-robot subscriptions so they survive MQTT reconnects.
   final Set<String> _subscribedRobots = {};
+  final Map<String, DateTime> _robotLastSeen = {};
+
+  bool? _mockIsConnected;
+  bool? _mockRobotOnline;
+
+  /// Used in unit/widget tests to mock connection or online state
+  void setMockState({bool? isConnected, bool? isRobotOnline}) {
+    _mockIsConnected = isConnected;
+    _mockRobotOnline = isRobotOnline;
+    if (isRobotOnline != null) {
+      _robotOnlineStatusController.add(isRobotOnline);
+    }
+  }
+
+  void resetMockState() {
+    _mockIsConnected = null;
+    _mockRobotOnline = null;
+  }
 
   final _messageController = StreamController<MqttMessage>.broadcast();
   Stream<MqttMessage> get onMessage => _messageController.stream;
 
-  bool get isConnected =>
-      _client?.connectionStatus?.state == MqttConnectionState.connected;
+  final _connectionStatusController = StreamController<bool>.broadcast();
+  Stream<bool> get onConnectionStatus => _connectionStatusController.stream;
+
+  final _robotOnlineStatusController = StreamController<bool>.broadcast();
+  Stream<bool> get onRobotOnlineStatus => _robotOnlineStatusController.stream;
+
+  Timer? _heartbeatCheckTimer;
+
+  bool get isConnected {
+    if (_mockIsConnected != null) return _mockIsConnected!;
+    return _client?.connectionStatus?.state == MqttConnectionState.connected;
+  }
+
+  /// True if at least one robot has sent telemetry or heartbeat within the last 45 seconds
+  bool get isRobotOnline {
+    if (_mockRobotOnline != null) return _mockRobotOnline!;
+    if (!isConnected) return false;
+    final now = DateTime.now();
+    return _robotLastSeen.values.any((t) => now.difference(t).inSeconds <= 45);
+  }
+
+  void _recordRobotTelemetry(String topic, String payload) {
+    final upper = payload.toUpperCase().trim();
+    final parts = topic.split('/');
+    final robotId = parts.length >= 2 ? parts[1] : 'general';
+
+    final wasOnline = isRobotOnline;
+    if (upper.contains('OFFLINE') || upper.contains('DISCONNECT')) {
+      _robotLastSeen.remove(robotId);
+    } else {
+      _robotLastSeen[robotId] = DateTime.now();
+    }
+
+    if (wasOnline != isRobotOnline) {
+      _robotOnlineStatusController.add(isRobotOnline);
+    }
+  }
 
   Future<void> connect() async {
     if (isConnected) return; // already connected, skip
@@ -43,17 +96,34 @@ class MQTTService {
 
     _client!.onConnected = () {
       print('MQTT Connected');
+      _connectionStatusController.add(true);
       _client!.subscribe('solarcleaner/status', MqttQos.atLeastOnce);
       _client!.subscribe('solarcleaner/response', MqttQos.atLeastOnce);
+      _client!.subscribe('solarcleaner/+/status', MqttQos.atLeastOnce);
+      _client!.subscribe('solarcleaner/+/response', MqttQos.atLeastOnce);
       // Re-subscribe to any robots that were added before/during reconnect.
       for (final robotId in _subscribedRobots) {
         _client!.subscribe('solarcleaner/$robotId/status', MqttQos.atLeastOnce);
         _client!.subscribe('solarcleaner/$robotId/response', MqttQos.atLeastOnce);
       }
+
+      _heartbeatCheckTimer?.cancel();
+      _heartbeatCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        final wasOnline = isRobotOnline;
+        final now = DateTime.now();
+        _robotLastSeen.removeWhere((_, time) => now.difference(time).inSeconds > 45);
+        if (wasOnline != isRobotOnline) {
+          _robotOnlineStatusController.add(isRobotOnline);
+        }
+      });
     };
 
     _client!.onDisconnected = () {
       print('MQTT Disconnected');
+      _heartbeatCheckTimer?.cancel();
+      _robotLastSeen.clear();
+      _connectionStatusController.add(false);
+      _robotOnlineStatusController.add(false);
     };
 
     _client!.connectionMessage = MqttConnectMessage()
@@ -72,10 +142,15 @@ class MQTTService {
           (rec.payload as MqttPublishMessage).payload.message,
         );
         print("MQTT [$topic]: $msg");
+        _recordRobotTelemetry(topic, msg);
         _messageController.add(MqttMessage(topic, msg));
       });
     } catch (e) {
       print("MQTT connect error: $e");
+      _heartbeatCheckTimer?.cancel();
+      _robotLastSeen.clear();
+      _connectionStatusController.add(false);
+      _robotOnlineStatusController.add(false);
       _client?.disconnect();
     }
   }
@@ -126,6 +201,10 @@ class MQTTService {
   }
 
   void disconnect() {
+    _heartbeatCheckTimer?.cancel();
+    _robotLastSeen.clear();
+    _connectionStatusController.add(false);
+    _robotOnlineStatusController.add(false);
     _client?.disconnect();
   }
 }

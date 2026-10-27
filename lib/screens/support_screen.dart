@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'notification_screen.dart';
 import 'login_screen.dart';
+import 'support_form_screen.dart';
 import '../utils/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../services/notification_service.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -34,21 +37,126 @@ class _SupportScreenState extends State<SupportScreen> {
       );
   }
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+  Future<void> _sendEmail(String email) async {
+    _showFeedback("Redirecting to email services...", AppColors.blue);
 
-    final Uri launchUri = Uri(scheme: 'tel', path: cleanNumber);
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+      query: 'subject=${Uri.encodeComponent('SunVibee Robot Support Request')}',
+    );
 
     try {
-      if (await canLaunchUrl(launchUri)) {
-        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+      if (await canLaunchUrl(emailUri)) {
+        await launchUrl(emailUri, mode: LaunchMode.externalApplication);
       } else {
-        _showFeedback("Unable to make call", AppColors.red);
+        final launched = await launchUrl(
+          emailUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched) {
+          _showEmailFallbackDialog(email);
+        }
       }
     } catch (e) {
-      print('Call error: $e');
-      _showFeedback("Error making call", AppColors.red);
+      debugPrint('Email error: $e');
+      _showEmailFallbackDialog(email);
     }
+  }
+
+  void _showEmailFallbackDialog(String email) {
+    final scale = _scale(context);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8 * scale),
+              decoration: BoxDecoration(
+                color: AppColors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.email_outlined,
+                color: AppColors.blue,
+                size: 24 * scale,
+              ),
+            ),
+            SizedBox(width: 12 * scale),
+            Text(
+              "Email Support",
+              style: TextStyle(
+                fontSize: 18 * scale,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Could not open an email app automatically. You can contact us directly at:",
+                style: TextStyle(
+                  fontSize: 14 * scale,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 12 * scale),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 14 * scale,
+                  vertical: 12 * scale,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F4FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.blue.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: SelectableText(
+                  email,
+                  style: TextStyle(
+                    fontSize: 15 * scale,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: email));
+              Navigator.pop(context);
+              _showFeedback("Email copied to clipboard", AppColors.green);
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text("Copy Email"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showQuickHelpDialog(
@@ -78,7 +186,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   Container(
                     padding: EdgeInsets.all(10 * scale),
                     decoration: BoxDecoration(
-                      color: AppColors.orange.withOpacity(0.1),
+                      color: AppColors.orange.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -152,7 +260,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           width: 26 * scale,
                           height: 26 * scale,
                           decoration: BoxDecoration(
-                            color: AppColors.orange.withOpacity(0.1),
+                            color: AppColors.orange.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(13),
                           ),
                           child: Center(
@@ -183,34 +291,87 @@ class _SupportScreenState extends State<SupportScreen> {
                 ),
               ),
               SizedBox(height: 16 * scale),
-              // Close Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.orange,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SupportFormScreen(
+                              initialCategory: _mapQuickHelpToCategory(title),
+                            ),
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: AppColors.orange.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 13 * scale),
+                      ),
+                      icon: Icon(
+                        Icons.assignment_outlined,
+                        size: 16 * scale,
+                        color: AppColors.orange,
+                      ),
+                      label: Text(
+                        "Report Issue",
+                        style: TextStyle(
+                          fontSize: 13.5 * scale,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.orange,
+                        ),
+                      ),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: 14 * scale),
-                    minimumSize: Size(double.infinity, 48 * scale),
                   ),
-                  child: Text(
-                    "Got it!",
-                    style: TextStyle(
-                      fontSize: 16 * scale,
-                      fontWeight: FontWeight.w600,
+                  SizedBox(width: 10 * scale),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.orange,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 13 * scale),
+                      ),
+                      child: Text(
+                        "Got it!",
+                        style: TextStyle(
+                          fontSize: 15 * scale,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _mapQuickHelpToCategory(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('connect') || lower.contains('wifi')) {
+      return "Robot won't connect (Bluetooth / WiFi)";
+    } else if (lower.contains('stopped') || lower.contains('cleaning')) {
+      return "Cleaning stopped unexpectedly during session";
+    } else if (lower.contains('battery')) {
+      return "Battery problem / Charging dock issue";
+    }
+    return "Other issue (specify in details below)";
   }
 
   void _showFaqDialog() {
@@ -299,6 +460,90 @@ class _SupportScreenState extends State<SupportScreen> {
                       scale: scale,
                     );
                   },
+                ),
+              ),
+              SizedBox(height: 14 * scale),
+              // Technical Support Form Callout
+              Container(
+                padding: EdgeInsets.all(12 * scale),
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8 * scale),
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.assignment_late_outlined,
+                        color: AppColors.orange,
+                        size: 20 * scale,
+                      ),
+                    ),
+                    SizedBox(width: 10 * scale),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Have an error or breakdown?",
+                            style: TextStyle(
+                              fontSize: 13 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          SizedBox(height: 2 * scale),
+                          Text(
+                            "Submit a technical support request for direct engineer help.",
+                            style: TextStyle(
+                              fontSize: 11.5 * scale,
+                              color: Colors.grey.shade600,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 8 * scale),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.orange,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10 * scale,
+                          vertical: 8 * scale,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SupportFormScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        "Support Form",
+                        style: TextStyle(
+                          fontSize: 12 * scale,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -403,13 +648,13 @@ class _SupportScreenState extends State<SupportScreen> {
     );
 
     if (confirm == true) {
+      if (!mounted) return;
       try {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.logout();
 
-        setState(() => _isLoggingOut = false);
-
         if (mounted) {
+          setState(() => _isLoggingOut = false);
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -419,9 +664,11 @@ class _SupportScreenState extends State<SupportScreen> {
           _showFeedback("Logged out successfully", AppColors.green);
         }
       } catch (e) {
-        setState(() => _isLoggingOut = false);
-        _showFeedback("Error during logout", AppColors.red);
-        print('Logout error: $e');
+        if (mounted) {
+          setState(() => _isLoggingOut = false);
+          _showFeedback("Error during logout", AppColors.red);
+        }
+        debugPrint('Logout error: $e');
       }
     } else {
       setState(() => _isLoggingOut = false);
@@ -501,27 +748,40 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             child: Padding(
               padding: EdgeInsets.all(10 * scale),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 24 * scale,
-                    color: Colors.black87,
-                  ),
-                  Positioned(
-                    right: -1 * scale,
-                    top: -1 * scale,
-                    child: Container(
-                      width: 9 * scale,
-                      height: 9 * scale,
-                      decoration: const BoxDecoration(
-                        color: AppColors.orange,
-                        shape: BoxShape.circle,
+              child: ListenableBuilder(
+                listenable: NotificationService(),
+                builder: (context, _) {
+                  final hasUnread = NotificationService().unreadCount > 0;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        hasUnread
+                            ? Icons.notifications_active_outlined
+                            : Icons.notifications_none,
+                        size: 24 * scale,
+                        color: Colors.black87,
                       ),
-                    ),
-                  ),
-                ],
+                      if (hasUnread)
+                        Positioned(
+                          right: -1 * scale,
+                          top: -1 * scale,
+                          child: Container(
+                            width: 9 * scale,
+                            height: 9 * scale,
+                            decoration: BoxDecoration(
+                              color: AppColors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -544,7 +804,7 @@ class _SupportScreenState extends State<SupportScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withOpacity(.25),
+            color: AppColors.orange.withValues(alpha: .25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -570,7 +830,7 @@ class _SupportScreenState extends State<SupportScreen> {
                   "We're here to help you with your robot anytime.",
                   style: TextStyle(
                     fontSize: 15 * scale,
-                    color: Colors.white.withOpacity(.9),
+                    color: Colors.white.withValues(alpha: .9),
                     height: 1.5,
                   ),
                 ),
@@ -582,7 +842,7 @@ class _SupportScreenState extends State<SupportScreen> {
             width: 60 * scale,
             height: 60 * scale,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(.15),
+              color: Colors.white.withValues(alpha: .15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
@@ -600,11 +860,11 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildSupportOptions(double scale) {
     final options = [
       {
-        "icon": Icons.phone_in_talk_outlined,
-        "label": "Call Support",
-        "color": AppColors.green,
-        "bgColor": const Color(0xFFE5F5E8),
-        "phone": "+91 8899778600",
+        "icon": Icons.email_outlined,
+        "label": "Email Support",
+        "color": AppColors.blue,
+        "bgColor": const Color(0xFFE8F1FF),
+        "email": "sunvibe2024@gmail.com",
       },
       {
         "icon": Icons.help_outline,
@@ -625,7 +885,13 @@ class _SupportScreenState extends State<SupportScreen> {
             color: Colors.black,
           ),
         ),
-        SizedBox(height: 16 * scale),
+        SizedBox(height: 14 * scale),
+
+        // Prominent Product Issue / Breakdown Support Form Card
+        _buildProductIssueCard(scale),
+        SizedBox(height: 12 * scale),
+
+        // Quick Communication: Email Support & FAQ
         Row(
           children: [
             Expanded(child: _supportCard(scale, options[0])),
@@ -637,11 +903,119 @@ class _SupportScreenState extends State<SupportScreen> {
     );
   }
 
+  Widget _buildProductIssueCard(double scale) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SupportFormScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: EdgeInsets.all(16 * scale),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1E2430), Color(0xFF2C3545)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48 * scale,
+                height: 48 * scale,
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
+                child: Icon(
+                  Icons.assignment_late_outlined,
+                  color: AppColors.orange,
+                  size: 26 * scale,
+                ),
+              ),
+              SizedBox(width: 14 * scale),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          "Support Form",
+                          style: TextStyle(
+                            fontSize: 16 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(width: 8 * scale),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 7 * scale,
+                            vertical: 2.5 * scale,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.orange,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            "Report Issue",
+                            style: TextStyle(
+                              fontSize: 10 * scale,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4 * scale),
+                    Text(
+                      "Facing errors, malfunctions or breakdown? Contact us via support form.",
+                      style: TextStyle(
+                        fontSize: 12.5 * scale,
+                        color: Colors.white.withValues(alpha: 0.85),
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white70,
+                size: 16 * scale,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _supportCard(double scale, Map<String, dynamic> option) {
     return InkWell(
       onTap: () {
-        if (option["label"] == "Call Support") {
-          _makePhoneCall(option["phone"] as String);
+        if (option["label"] == "Email Support") {
+          _sendEmail(option["email"] as String);
         } else if (option["label"] == "FAQ") {
           _showFaqDialog();
         } else {
@@ -655,7 +1029,7 @@ class _SupportScreenState extends State<SupportScreen> {
           color: option["bgColor"],
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: option["color"].withOpacity(.2),
+            color: (option["color"] as Color).withValues(alpha: .2),
             width: 1.5,
           ),
         ),
@@ -669,7 +1043,7 @@ class _SupportScreenState extends State<SupportScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(.1),
+                    color: Colors.grey.withValues(alpha: .1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -846,7 +1220,7 @@ class _SupportScreenState extends State<SupportScreen> {
       child: OutlinedButton(
         onPressed: _isLoggingOut ? null : _handleLogout,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(color: Colors.red.withOpacity(.3), width: 1.5),
+          side: BorderSide(color: Colors.red.withValues(alpha: .3), width: 1.5),
           padding: EdgeInsets.symmetric(vertical: 16 * scale),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

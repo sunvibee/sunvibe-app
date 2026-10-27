@@ -49,8 +49,11 @@ async function initDB() {
       id            SERIAL PRIMARY KEY,
       robot_uid     VARCHAR(100) UNIQUE NOT NULL,
       label         VARCHAR(100),
+      password      VARCHAR(100),
       registered_at TIMESTAMP DEFAULT NOW()
     );
+
+    ALTER TABLE robot_registry ADD COLUMN IF NOT EXISTS password VARCHAR(100);
   `);
   console.log('✅ Database tables ready');
 }
@@ -199,17 +202,56 @@ app.put('/api/user/wifi', authenticate, async (req, res) => {
 
 // ── Robot registry routes ────────────────────────────────────────────────────
 
-// GET /api/robots/validate/:robotUid  — verify a robot UID exists in the registry
+// GET /api/robots/validate/:robotUid  — verify robot UID exists and check password
 app.get('/api/robots/validate/:robotUid', authenticate, async (req, res) => {
   try {
+    const password = req.query.password || req.headers['x-robot-password'];
     const result = await pool.query(
-      'SELECT robot_uid, label FROM robot_registry WHERE UPPER(robot_uid) = UPPER($1)',
+      'SELECT robot_uid, label, password FROM robot_registry WHERE UPPER(robot_uid) = UPPER($1)',
       [req.params.robotUid]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Robot ID not found. Check the ID printed on your robot.' });
     }
-    res.json({ valid: true, robot_uid: result.rows[0].robot_uid, label: result.rows[0].label });
+    const robot = result.rows[0];
+    if (robot.password) {
+      if (!password || !password.toString().trim()) {
+        return res.status(400).json({ error: 'Password is required to connect this robot.' });
+      }
+      if (robot.password.trim() !== password.toString().trim()) {
+        return res.status(401).json({ error: 'Incorrect robot password. Please check your robot password.' });
+      }
+    }
+    res.json({ valid: true, robot_uid: robot.robot_uid, label: robot.label });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/robots/validate  — verify robot UID and password
+app.post('/api/robots/validate', authenticate, async (req, res) => {
+  try {
+    const { robot_uid, password } = req.body;
+    if (!robot_uid) {
+      return res.status(400).json({ error: 'Robot ID is required' });
+    }
+    const result = await pool.query(
+      'SELECT robot_uid, label, password FROM robot_registry WHERE UPPER(robot_uid) = UPPER($1)',
+      [robot_uid.trim()]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Robot ID not found. Check the ID printed on your robot.' });
+    }
+    const robot = result.rows[0];
+    if (robot.password) {
+      if (!password || !password.toString().trim()) {
+        return res.status(400).json({ error: 'Password is required to connect this robot.' });
+      }
+      if (robot.password.trim() !== password.toString().trim()) {
+        return res.status(401).json({ error: 'Incorrect robot password. Please check your robot password.' });
+      }
+    }
+    res.json({ valid: true, robot_uid: robot.robot_uid, label: robot.label });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -218,17 +260,17 @@ app.get('/api/robots/validate/:robotUid', authenticate, async (req, res) => {
 // POST /api/admin/robots  — pre-register a single robot UID (admin only)
 app.post('/api/admin/robots', async (req, res) => {
   try {
-    const { robot_uid, label, admin_secret } = req.body;
+    const { robot_uid, label, password, admin_secret } = req.body;
     if (!admin_secret || admin_secret !== process.env.ADMIN_SECRET) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     if (!robot_uid) return res.status(400).json({ error: 'robot_uid is required' });
     const result = await pool.query(
-      `INSERT INTO robot_registry (robot_uid, label)
-       VALUES ($1, $2)
-       ON CONFLICT (robot_uid) DO UPDATE SET label = EXCLUDED.label
+      `INSERT INTO robot_registry (robot_uid, label, password)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (robot_uid) DO UPDATE SET label = EXCLUDED.label, password = EXCLUDED.password
        RETURNING *`,
-      [robot_uid.trim(), label || robot_uid]
+      [robot_uid.trim(), label || robot_uid, password || null]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -237,7 +279,7 @@ app.post('/api/admin/robots', async (req, res) => {
 });
 
 // POST /api/admin/robots/bulk  — pre-register multiple robot UIDs at once
-// Body: { admin_secret, robots: [{ robot_uid, label }, ...] }
+// Body: { admin_secret, robots: [{ robot_uid, label, password }, ...] }
 app.post('/api/admin/robots/bulk', async (req, res) => {
   try {
     const { robots, admin_secret } = req.body;
@@ -253,16 +295,16 @@ app.post('/api/admin/robots/bulk', async (req, res) => {
     const placeholders = robots.map((r, i) => {
       const uid = String(r.robot_uid || '').trim();
       if (!uid) throw new Error(`robots[${i}] missing robot_uid`);
-      values.push(uid, r.label || uid);
-      const base = i * 2;
-      return `($${base + 1}, $${base + 2})`;
+      values.push(uid, r.label || uid, r.password || null);
+      const base = i * 3;
+      return `($${base + 1}, $${base + 2}, $${base + 3})`;
     });
 
     const result = await pool.query(
-      `INSERT INTO robot_registry (robot_uid, label)
+      `INSERT INTO robot_registry (robot_uid, label, password)
        VALUES ${placeholders.join(', ')}
-       ON CONFLICT (robot_uid) DO UPDATE SET label = EXCLUDED.label
-       RETURNING robot_uid, label, registered_at`,
+       ON CONFLICT (robot_uid) DO UPDATE SET label = EXCLUDED.label, password = EXCLUDED.password
+       RETURNING robot_uid, label, password, registered_at`,
       values
     );
     res.status(201).json({ inserted: result.rowCount, robots: result.rows });
@@ -278,7 +320,7 @@ app.get('/api/admin/robots', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const result = await pool.query(
-      'SELECT robot_uid, label, registered_at FROM robot_registry ORDER BY registered_at DESC'
+      'SELECT robot_uid, label, password, registered_at FROM robot_registry ORDER BY registered_at DESC'
     );
     res.json({ total: result.rowCount, robots: result.rows });
   } catch (err) {
@@ -304,8 +346,21 @@ app.get('/api/robots', authenticate, async (req, res) => {
 // POST /api/robots
 app.post('/api/robots', authenticate, async (req, res) => {
   try {
-    const { robot_uid, robot_name } = req.body;
+    const { robot_uid, robot_name, password } = req.body;
     if (!robot_uid) return res.status(400).json({ error: 'robot_uid is required' });
+
+    // Validate robot exists and check password if registry has a password
+    const regResult = await pool.query(
+      'SELECT password FROM robot_registry WHERE UPPER(robot_uid) = UPPER($1)',
+      [robot_uid.trim()]
+    );
+
+    if (regResult.rows.length > 0 && regResult.rows[0].password) {
+      const regPass = regResult.rows[0].password.trim();
+      if (!password || password.toString().trim() !== regPass) {
+        return res.status(401).json({ error: 'Incorrect robot password. Please check your robot password.' });
+      }
+    }
 
     const result = await pool.query(
       `INSERT INTO robots (user_id, robot_uid, robot_name)

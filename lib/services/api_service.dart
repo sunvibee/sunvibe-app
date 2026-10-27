@@ -24,7 +24,14 @@ class ApiService {
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-  Uri _uri(String path) => Uri.parse('${ApiConfig.baseUrl}$path');
+  Uri _uri(String path, [Map<String, dynamic>? queryParameters]) {
+    final base = Uri.parse('${ApiConfig.baseUrl}$path');
+    if (queryParameters == null || queryParameters.isEmpty) return base;
+    return base.replace(queryParameters: {
+      ...base.queryParameters,
+      ...queryParameters.map((k, v) => MapEntry(k, v.toString())),
+    });
+  }
 
   Map<String, dynamic> _decode(http.Response r) {
     try {
@@ -131,13 +138,16 @@ class ApiService {
   }
 
   // ── Robots ──────────────────────────────────────────────────────────────────
-
-  /// Checks that the robot UID exists in the pre-registered registry.
-  /// Throws [ApiException] with a user-facing message if not found.
-  Future<Map<String, dynamic>> validateRobot(String robotUid) async {
+ 
+  /// Checks that the robot UID exists in the pre-registered registry and matches password.
+  /// Throws [ApiException] with a user-facing message if not found or invalid password.
+  Future<Map<String, dynamic>> validateRobot(String robotUid, {String? password}) async {
     try {
+      final query = (password != null && password.isNotEmpty)
+          ? {'password': password}
+          : null;
       final r = await http
-          .get(_uri('/api/robots/validate/$robotUid'), headers: _headers)
+          .get(_uri('/api/robots/validate/$robotUid', query), headers: _headers)
           .timeout(_timeout);
       final body = _decode(r);
       _assertOk(r, body);
@@ -166,12 +176,17 @@ class ApiService {
   Future<Map<String, dynamic>> registerRobot({
     required String robotUid,
     String? robotName,
+    String? password,
   }) async {
     final r = await http
         .post(
           _uri('/api/robots'),
           headers: _headers,
-          body: jsonEncode({'robot_uid': robotUid, 'robot_name': robotName}),
+          body: jsonEncode({
+            'robot_uid': robotUid,
+            'robot_name': robotName,
+            if (password != null && password.isNotEmpty) 'password': password,
+          }),
         )
         .timeout(_timeout);
     final body = _decode(r);
