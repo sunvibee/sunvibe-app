@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import 'notification_screen.dart';
 import 'cleaning_history_screen.dart';
-import 'main_navigation_screen.dart';
 import '../services/mqtt_service.dart';
 import '../services/notification_service.dart';
 import '../services/robot_timer_service.dart';
@@ -318,19 +317,18 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
+    // If no telemetry has been received from the robot yet, show a soft
+    // warning but still send the command — the ESP32 may be running fine
+    // but only publishes on state changes (not periodic heartbeats).
     if (!MQTTService.instance.isRobotOnline) {
-      _showProfessionalError(
-        title: 'Robot is Offline',
-        message:
-            'Robot is not connected to power supply or is offline. Please check power switch and ensure it is online on the Robot screen.',
-        icon: Icons.power_off_rounded,
-        actionLabel: 'Check Robot',
-        onAction: () => MainNavigationScreen.switchTab(context, 1),
+      _showFeedback(
+        'No recent robot signal — command sent anyway.',
+        AppColors.orange,
       );
-      return;
     }
 
     MQTTService.instance.publishToAll('ON');
+    MQTTService.instance.publish('ON');
     setState(() {
       robotState = RobotState.online;
     });
@@ -365,19 +363,8 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
-    if (!MQTTService.instance.isRobotOnline && robotState != RobotState.online) {
-      _showProfessionalError(
-        title: 'Robot is Offline',
-        message:
-            'The robot is not reachable or disconnected from power supply.',
-        icon: Icons.power_off_rounded,
-        actionLabel: 'Check Robot',
-        onAction: () => MainNavigationScreen.switchTab(context, 1),
-      );
-      return;
-    }
-
     MQTTService.instance.publishToAll('OFF');
+    MQTTService.instance.publish('OFF');
     setState(() {
       robotState = RobotState.stopped;
     });

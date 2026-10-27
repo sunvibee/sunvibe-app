@@ -54,12 +54,15 @@ class MQTTService {
     return _client?.connectionStatus?.state == MqttConnectionState.connected;
   }
 
-  /// True if at least one robot has sent telemetry or heartbeat within the last 45 seconds
+  /// True if at least one robot has sent telemetry or heartbeat within the
+  /// last 90 seconds. The extended window accounts for ESP32 firmware that
+  /// only publishes on state changes (not periodic heartbeats).
   bool get isRobotOnline {
     if (_mockRobotOnline != null) return _mockRobotOnline!;
     if (!isConnected) return false;
+    if (_subscribedRobots.isNotEmpty && _robotLastSeen.isEmpty) return true;
     final now = DateTime.now();
-    return _robotLastSeen.values.any((t) => now.difference(t).inSeconds <= 45);
+    return _robotLastSeen.values.any((t) => now.difference(t).inSeconds <= 90);
   }
 
   void _recordRobotTelemetry(String topic, String payload) {
@@ -108,10 +111,10 @@ class MQTTService {
       }
 
       _heartbeatCheckTimer?.cancel();
-      _heartbeatCheckTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _heartbeatCheckTimer = Timer.periodic(const Duration(seconds: 10), (_) {
         final wasOnline = isRobotOnline;
         final now = DateTime.now();
-        _robotLastSeen.removeWhere((_, time) => now.difference(time).inSeconds > 45);
+        _robotLastSeen.removeWhere((_, time) => now.difference(time).inSeconds > 90);
         if (wasOnline != isRobotOnline) {
           _robotOnlineStatusController.add(isRobotOnline);
         }
@@ -156,11 +159,22 @@ class MQTTService {
   }
 
   /// Subscribe to a robot's status/response topics using its client ID.
+  /// Seeds [_robotLastSeen] immediately so the robot is considered reachable
+  /// as soon as it is subscribed, rather than waiting for the first telemetry
+  /// frame which may never come if the ESP32 only publishes on state changes.
   void subscribeToRobot(String robotId) {
     _subscribedRobots.add(robotId); // persists across reconnects
     if (!isConnected) return;
     _client!.subscribe('solarcleaner/$robotId/status', MqttQos.atLeastOnce);
     _client!.subscribe('solarcleaner/$robotId/response', MqttQos.atLeastOnce);
+    // Assume the robot is reachable until proven otherwise.
+    // This prevents a false "Robot Offline" when the ESP32 is running but
+    // hasn't published its first heartbeat yet.
+    _robotLastSeen[robotId] = DateTime.now();
+    final wasOnline = isRobotOnline;
+    if (wasOnline != isRobotOnline) {
+      _robotOnlineStatusController.add(isRobotOnline);
+    }
   }
 
   /// Unsubscribe from a robot's topics when disconnecting it.
