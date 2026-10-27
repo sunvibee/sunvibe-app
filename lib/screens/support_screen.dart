@@ -864,7 +864,7 @@ class _SupportScreenState extends State<SupportScreen> {
         "label": "Email Support",
         "color": AppColors.blue,
         "bgColor": const Color(0xFFE8F1FF),
-        "email": "support@sunvibe.com",
+        "email": "sunvibe2024@gmail.com",
       },
       {
         "icon": Icons.help_outline,
@@ -920,10 +920,7 @@ class _SupportScreenState extends State<SupportScreen> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1E2430),
-                Color(0xFF2C3545),
-              ],
+              colors: [Color(0xFF1E2430), Color(0xFF2C3545)],
             ),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
@@ -1223,10 +1220,7 @@ class _SupportScreenState extends State<SupportScreen> {
       child: OutlinedButton(
         onPressed: _isLoggingOut ? null : _handleLogout,
         style: OutlinedButton.styleFrom(
-          side: BorderSide(
-            color: Colors.red.withValues(alpha: .3),
-            width: 1.5,
-          ),
+          side: BorderSide(color: Colors.red.withValues(alpha: .3), width: 1.5),
           padding: EdgeInsets.symmetric(vertical: 16 * scale),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),

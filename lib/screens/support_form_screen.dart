@@ -29,7 +29,7 @@ class _SupportFormScreenState extends State<SupportFormScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _otherDetailsController = TextEditingController();
 
-  static const String _supportEmail = 'support@sunvibe.com';
+  static const String _supportEmail = 'sunvibe2024@gmail.com';
 
   static const List<String> _problemCategories = [
     "Robot won't connect (Bluetooth / WiFi)",
