@@ -74,5 +74,11 @@
             <action android:name="android.intent.action.CALL" />
             <data android:scheme="tel" />
         </intent>
+        
+        <!-- For email -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
     </queries>
 </manifest>
